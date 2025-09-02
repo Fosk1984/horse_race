@@ -219,7 +219,7 @@
   const ctx = canvas.getContext('2d');
   let W=0, H=0, t=0, lastFrame=0;
   let baseScroll=140, scrollBoost=0, trackOffset=0;
-  const leftPad=110, rightPad=90;
+  const leftPad=110, rightPad=8;
   const finishLineX = ()=> W - rightPad;
   const startLineX  = ()=> leftPad;
 
@@ -517,17 +517,22 @@
     }
 
     // finish marker
-    const fx = finishLineX();
-    for(let i=0;i<12;i++){
-      ctx.fillStyle = i%2 ? '#fff' : '#cc2a2a';
-      ctx.fillRect(fx-3, top-18 + i*6, 6,6);
-    }
-    for(let i=0;i<10;i++){
-      ctx.fillStyle = i%2 ? '#fff' : '#111';
-      ctx.fillRect(fx-28 + i*5, top-28, 5,20);
-    }
-    ctx.fillStyle = '#f0f6ff'; ctx.font='12px system-ui, sans-serif'; ctx.fillText('FINISH', fx-24, top-32);
-  }
+
+const fx = finishLineX();
+for(let i=0;i<12;i++){
+  ctx.fillStyle = i%2 ? '#fff' : '#cc2a2a';
+  ctx.fillRect(fx-3, top-18 + i*6, 6,6);
+}
+for(let i=0;i<10;i++){
+  ctx.fillStyle = i%2 ? '#fff' : '#111';
+  ctx.fillRect(fx-28 + i*5, top-28, 5,20);
+}
+// keep the label slightly in from the edge so it’s visible
+ctx.fillStyle = '#f0f6ff';
+ctx.font = '12px system-ui, sans-serif';
+ctx.textAlign = 'right';
+ctx.fillText('FINISH', Math.min(W-6, fx - 6), top-32);
+ctx.textAlign = 'start';
 
   function drawHorses(){
     const { top } = fieldGeometry();
