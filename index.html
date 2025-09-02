@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Horse Race Quiz — Podium on 3rd Finisher</title>
+<title>Horse Race Quiz — Flash-style Animated Track (Top Half)</title>
 <style>
   :root{
     --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
@@ -11,23 +11,31 @@
   }
   *{box-sizing:border-box}
   html,body{height:100%}
-  body{margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--ink)}
-  .app{max-width:1100px; margin:24px auto; padding:16px}
-  h1{margin:0 0 12px; font-size:24px}
-  .top{display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
 
+  /* Layout: top half = animation, bottom half = controls */
+  .raceTop{height:50vh; min-height:320px; position:relative; border-bottom:1px solid var(--edge)}
+  canvas#raceCanvas{position:absolute; inset:0; width:100%; height:100%}
+
+  .hud{
+    position:absolute; left:12px; top:10px; display:flex; gap:8px; flex-wrap:wrap;
+    background:rgba(15,21,39,.6); border:1px solid var(--edge); backdrop-filter:blur(6px);
+    padding:8px 10px; border-radius:10px; font-size:12px
+  }
+  .hud .pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#0f1527; border:1px solid var(--edge); color:var(--muted)}
+  .hud .title{font-weight:800; color:var(--ink)}
+  .hudRight{position:absolute; right:12px; top:10px; display:flex; gap:10px; align-items:center}
+  .clock{font-variant-numeric:tabular-nums; font-weight:800}
+  .btnTiny{cursor:pointer; border:1px solid var(--edge); background:#0f1527; color:var(--ink); padding:6px 8px; border-radius:8px; font-weight:700; font-size:12px}
+
+  .bottom{max-width:1100px; margin:18px auto; padding:0 16px 24px}
   .card{background:var(--card); border:1px solid var(--edge); border-radius:12px; padding:14px}
-  .controls{flex:1 1 360px}
-  .trackWrap{flex:3 1 640px}
 
   .row{display:flex; align-items:center; gap:10px; margin:8px 0}
   label{font-size:14px;color:var(--muted)}
   input[type="text"],input[type="number"]{background:#0f1527; color:var(--ink); border:1px solid var(--edge); border-radius:8px; padding:6px 8px}
   input[type="text"]{width:140px} input[type="number"]{width:80px}
-
-  .pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#0f1527; border:1px solid var(--edge); color:var(--muted)}
   .btn{cursor:pointer; border:1px solid var(--edge); background:#0f1527; color:var(--ink); padding:8px 10px; border-radius:10px; font-weight:600}
-  .btn[disabled]{opacity:.5; cursor:not-allowed}
   .btn.good{border-color:#245c43; background:#0c1a16}
   .btn.warn{border-color:#5c2424; background:#1a0c0c}
   .btn.accent{border-color:#274f7c; background:#0d1626}
@@ -37,227 +45,150 @@
   .tiny{font-size:12px; color:var(--muted)}
   .warning{color:var(--bad); font-weight:600; display:none}
 
-  .legend{display:flex; gap:12px; align-items:center; margin-top:8px}
-  .legend .swatch{width:16px; height:16px; border:1px solid var(--edge); background:#0b162b; border-radius:4px}
-  .legend .swatch.finish{background:#13253f}
-
-  .track{margin-top:10px; border:1px solid var(--edge); border-radius:12px; padding:10px; background:#0f1527; position:relative; overflow:hidden}
-  .lane{display:grid; grid-template-columns: 160px repeat(var(--cols), 1fr); gap:4px; align-items:center; margin:6px 0}
-  .lane .name{display:flex; align-items:center; gap:6px; font-weight:700}
-  .cell{height:26px; border:1px dashed #233257; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#7987a8}
-  .horse{height:26px; border:2px solid var(--acc); background:#0b162b; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px}
-  .finish{background:#13253f; border-color:#355c92}
-  .lead{outline:2px solid var(--gold); box-shadow:0 0 0 2px rgba(255,211,106,.2) inset}
-
   .perRound{margin-top:12px; border-top:1px dashed var(--edge); padding-top:12px}
   .perRound h3{margin:0 0 8px; font-size:16px}
   .perRound .grid{display:grid; grid-template-columns: 1fr 90px 90px; gap:8px 12px; align-items:center}
   .footerBtns{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap}
 
-  .roundMeta{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-  .timer{display:flex; align-items:center; gap:8px}
-  .clock{font-variant-numeric:tabular-nums; font-weight:800}
-  .blink{animation:blink 1s steps(2,end) infinite}
-  @keyframes blink{50%{opacity:.3}}
-
-  canvas.confetti{position:absolute; inset:0; pointer-events:none; mix-blend-mode:screen; opacity:.9}
   .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:18px; background:#0d1626; border:1px solid #274f7c; padding:8px 12px; border-radius:10px; font-weight:700}
 
-  /* Podium modal (appears ONLY when 3rd finisher arrives) */
-  .modal{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:16px; z-index:50}
-  .modal.show{display:flex}
-  .modalCard{background:var(--card); border:1px solid var(--edge); border-radius:16px; padding:18px; width:min(720px,90vw)}
-  .modalTitle{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
-  .modalTitle h2{margin:0; font-size:20px}
-  .modalBtns{display:flex; gap:8px}
-  .podium{display:flex; gap:10px; align-items:flex-end; margin-top:8px}
-  .step{flex:1; min-width:0; position:relative; border:1px solid var(--edge); border-radius:12px; background:linear-gradient(180deg,#0f1a30,#0b1324);}
-  .step .cap{position:absolute; top:-24px; left:50%; transform:translateX(-50%); font-size:18px; font-weight:800}
-  .step .inner{padding:10px; display:flex; flex-direction:column; gap:6px; justify-content:flex-end; height:100%}
-  .first{height:130px; outline:2px solid rgba(255,211,106,.3)}
-  .second{height:100px}
-  .third{height:80px}
-  .podTitle{display:flex; align-items:center; gap:10px; margin:0 0 6px; font-weight:700}
-  .podTitle .dot{width:10px; height:10px; border-radius:50%; border:1px solid var(--edge); background:#0b162b}
-  .podNames{font-size:16px; color:var(--ink); word-break:break-word}
-  .podSeat{font-size:12px; color:#9fb2da}
-  .podMoves{font-size:12px; color:#9fb2da}
-
-  /* responsive */
   @media (max-width:920px){
-    .lane{grid-template-columns: 120px repeat(var(--cols), 1fr);}
-    input[type="text"]{width:110px}
+    .perRound .grid{grid-template-columns: 1fr 70px 70px}
   }
 </style>
 </head>
 <body>
-<div class="app">
-  <h1>🐎 Horse Race Quiz</h1>
 
-  <div class="top">
-    <!-- Controls -->
-    <div class="card controls">
-      <div class="row roundMeta">
-        <div><strong>Rounds:</strong> <span id="roundNow">1</span>/<span id="roundTotal">30</span></div>
-        <div class="pill">Correct = +1</div>
-        <div class="pill">Fastest correct = +1</div>
-      </div>
+<!-- TOP: Flash-like animated race view -->
+<div class="raceTop">
+  <canvas id="raceCanvas"></canvas>
 
-      <div class="row timer">
-        <label>Round timer (s)</label>
-        <input id="secs" type="number" min="5" max="300" value="20" />
-        <button class="btn accent" id="startTimer">Start (T)</button>
-        <button class="btn" id="stopTimer">Stop</button>
-        <div class="clock" id="clock">00:20</div>
-      </div>
-
-      <div class="row">
-        <label>Total rounds</label>
-        <input id="totalRounds" type="number" min="1" max="100" value="30">
-        <button class="btn accent" id="applyRounds">Apply</button>
-      </div>
-
-      <div class="row"><label>Player names</label></div>
-      <div class="playersGrid" id="nameGrid"></div>
-
-      <div class="perRound">
-        <h3>Round Input</h3>
-        <div class="tiny">Tick everyone who was <strong>correct</strong>. Select <strong>fastest</strong> among them (or hit keys <strong>1–7</strong> for fastest, <strong>Shift+1–7</strong> toggle correct). <em>Space</em> = Apply.</div>
-        <div class="grid" id="roundGrid"></div>
-        <div class="warning" id="warn">Fastest must be one of the correct players (or leave fastest unselected if no one was correct).</div>
-        <div class="footerBtns">
-          <button class="btn good" id="applyRound">Apply Round (Space)</button>
-          <button class="btn" id="undoRound" disabled>Undo (Backspace)</button>
-          <button class="btn warn" id="resetRace">Reset Race (R)</button>
-          <button class="btn gold" id="exportCsv">Export CSV</button>
-        </div>
-        <div class="tiny">URL presets: <code>?p1=Alice&p2=Ben&...&rounds=30&secs=15</code></div>
-      </div>
-    </div>
-
-    <!-- Track -->
-    <div class="card trackWrap">
-      <div class="legend">
-        <div class="swatch"></div> Horse position
-        <div class="swatch finish"></div> Finish
-        <span class="pill">Leader outlined in gold</span>
-      </div>
-      <div id="track" class="track">
-        <canvas class="confetti" id="confetti"></canvas>
-      </div>
-    </div>
+  <!-- Minimal HUD over canvas -->
+  <div class="hud">
+    <span class="title">🐎 Horse Race</span>
+    <span id="roundHud" class="pill">Round 1/30</span>
+    <span class="pill">Correct = +1</span>
+    <span class="pill">Fastest correct = +1</span>
+  </div>
+  <div class="hudRight">
+    <label class="tiny">Round timer (s)</label>
+    <input id="secsTop" type="number" min="5" max="300" value="20" />
+    <button class="btnTiny" id="startTimerTop">Start (T)</button>
+    <button class="btnTiny" id="stopTimerTop">Stop</button>
+    <div class="clock" id="clockTop">00:20</div>
   </div>
 </div>
 
-<!-- Podium Modal (hidden until 3rd finisher) -->
-<div class="modal" id="podiumModal" aria-hidden="true">
-  <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="podiumTitle">
-    <div class="modalTitle">
-      <h2 id="podiumTitle">🏆 Final Podium</h2>
-      <div class="modalBtns">
-        <button class="btn" id="closePodium">Close (Esc)</button>
-        <button class="btn warn" id="resetFromPodium">Reset Race</button>
+<!-- BOTTOM: controls/scoring -->
+<div class="bottom">
+  <div class="card">
+    <div class="row">
+      <label>Total rounds</label>
+      <input id="totalRounds" type="number" min="1" max="100" value="30">
+      <button class="btn accent" id="applyRounds">Apply</button>
+      <span class="tiny">Keys: <strong>1–7</strong> fastest (+correct), <strong>Shift+1–7</strong> toggle correct, <strong>Space</strong> Apply, <strong>Backspace</strong> Undo, <strong>R</strong> Reset, <strong>T</strong> Timer.</span>
+    </div>
+
+    <div class="row"><label>Player names</label></div>
+    <div class="playersGrid" id="nameGrid"></div>
+
+    <div class="perRound">
+      <h3>Round Input</h3>
+      <div class="tiny">Tick everyone who was <strong>correct</strong>. Select <strong>fastest</strong> among them. Then Apply.</div>
+      <div class="grid" id="roundGrid"></div>
+      <div class="warning" id="warn">Fastest must be one of the correct players (or leave fastest unselected if no one was correct).</div>
+      <div class="footerBtns">
+        <button class="btn good" id="applyRound">Apply Round (Space)</button>
+        <button class="btn" id="undoRound" disabled>Undo (Backspace)</button>
+        <button class="btn warn" id="resetRace">Reset Race (R)</button>
+        <button class="btn gold" id="exportCsv">Export CSV</button>
       </div>
     </div>
-    <div class="podium" id="podiumContent"></div>
   </div>
 </div>
 
 <div class="toast" id="toast" style="display:none"></div>
 
-<audio id="beep" preload="auto">
-  <source src="data:audio/wav;base64,UklGRmYAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAchYAAAB///8AAP///wAA" type="audio/wav">
-</audio>
-
 <script>
 (function(){
-  // --- Config / State ---
+  // ------- State -------
   const NUM_PLAYERS = 7;
   const INIT_NAMES = ["Player 1","Player 2","Player 3","Player 4","Player 5","Player 6","Player 7"];
-  const emoji = "🐎";
   const state = {
     totalRounds: 30,
     roundNow: 1,
-    players: [],      // {name, pos}
-    history: [],      // per round: [{idx, delta}, ...]
-    finishers: []     // array of player indices in exact finish order (max 3 shown)
+    players: [],          // {name, pos, animX}
+    history: [],          // per round deltas
+    finishers: []         // order indices
   };
 
-  // --- DOM refs ---
-  const elTrack = document.getElementById('track');
-  const elRoundNow = document.getElementById('roundNow');
-  const elRoundTotal = document.getElementById('roundTotal');
-  const elTotalRoundsInput = document.getElementById('totalRounds');
+  // ------- DOM (bottom) -------
+  const elTotalRounds = document.getElementById('totalRounds');
+  const elApplyRounds = document.getElementById('applyRounds');
   const elNameGrid = document.getElementById('nameGrid');
   const elRoundGrid = document.getElementById('roundGrid');
+  const elWarn = document.getElementById('warn');
   const elApplyRound = document.getElementById('applyRound');
   const elUndo = document.getElementById('undoRound');
   const elReset = document.getElementById('resetRace');
-  const elWarn = document.getElementById('warn');
   const elExport = document.getElementById('exportCsv');
-  const elSecs = document.getElementById('secs');
-  const elStart = document.getElementById('startTimer');
-  const elStop = document.getElementById('stopTimer');
-  const elClock = document.getElementById('clock');
-  const elConfetti = document.getElementById('confetti');
   const elToast = document.getElementById('toast');
-  const elBeep = document.getElementById('beep');
+  const elRoundHud = document.getElementById('roundHud');
 
-  // Podium modal
-  const elPodiumModal = document.getElementById('podiumModal');
-  const elPodiumContent = document.getElementById('podiumContent');
-  const elClosePodium = document.getElementById('closePodium');
-  const elResetFromPodium = document.getElementById('resetFromPodium');
-
-  // --- Timer ---
+  // ------- Timer (top HUD) -------
+  const elSecsTop = document.getElementById('secsTop');
+  const elStartTop = document.getElementById('startTimerTop');
+  const elStopTop  = document.getElementById('stopTimerTop');
+  const elClockTop = document.getElementById('clockTop');
   let timerInt=null, remaining=0;
 
-  // --- Init ---
+  // ------- Canvas (top) -------
+  const canvas = document.getElementById('raceCanvas');
+  const ctx = canvas.getContext('2d');
+  let W=0, H=0;
+  let t=0;
+  let baseScroll = 140;      // px/sec
+  let scrollBoost = 0;       // extra speed for drama after Apply
+  let trackOffset = 0;       // horizontal loop offset
+
+  const LANES = NUM_PLAYERS;
+  const lanePadTop = 40;
+  const lanePadBottom = 40;
+  const leftPad = 100;       // left padding before start
+  const rightPad = 80;       // right padding after finish
+  const finishLineX = ()=> W - rightPad;
+  const startLineX  = ()=> leftPad;
+
+  function resize(){
+    const r = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(r.width * devicePixelRatio);
+    canvas.height = Math.floor(r.height * devicePixelRatio);
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    W = r.width; H = r.height;
+  }
+  window.addEventListener('resize', resize);
+
+  // ------- Init -------
   function init(){
-    // URL presets
+    // Names from URL (optional)
     const url = new URL(location.href);
     for (let i=1;i<=NUM_PLAYERS;i++){
       const v = url.searchParams.get('p'+i);
       if (v) INIT_NAMES[i-1] = decodeURIComponent(v);
     }
-    const r = url.searchParams.get('rounds');
-    if (r) state.totalRounds = clamp(parseInt(r,10),1,100);
-    const s = url.searchParams.get('secs');
-    if (s) elSecs.value = clamp(parseInt(s,10),5,300);
 
-    // Load from localStorage if present
-    const saved = safeParse(localStorage.getItem('horseRaceV3podium'));
-    if (saved && Array.isArray(saved.players) && saved.players.length===NUM_PLAYERS){
-      Object.assign(state, saved);
-    } else {
-      state.players = Array.from({length: NUM_PLAYERS}, (_,i)=>({name: INIT_NAMES[i], pos:0}));
-      state.totalRounds = state.totalRounds || 30;
-      state.roundNow = 1;
-      state.history = [];
-      state.finishers = [];
-    }
-
-    // UI priming
-    document.getElementById('totalRounds').value = state.totalRounds;
-    elRoundTotal.textContent = state.totalRounds;
-    elRoundNow.textContent = state.roundNow;
-
+    state.players = Array.from({length:NUM_PLAYERS}, (_,i)=>({name: INIT_NAMES[i], pos:0, animX: startLineX()}));
     buildNameEditor();
     buildRoundInputs();
-    renderTrack();
-    updateUndoBtn();
-    resizeConfetti();
-    window.addEventListener('resize', resizeConfetti);
-    tickClock(false);
+    elTotalRounds.value = state.totalRounds;
+    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
 
-    // podium controls
-    elClosePodium.addEventListener('click', hidePodium);
-    elResetFromPodium.addEventListener('click', ()=>{ hidePodium(); hardReset(); });
-    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hidePodium(); });
-    elPodiumModal.addEventListener('click', (e)=>{ if(e.target===elPodiumModal) hidePodium(); });
+    resize();
+    lastFrame = performance.now();
+    requestAnimationFrame(loop);
   }
 
-  // --- UI builders ---
+  // ------- UI builders -------
   function buildNameEditor(){
     elNameGrid.innerHTML = '';
     state.players.forEach((p, i)=>{
@@ -266,39 +197,29 @@
       nameInput.value = p.name;
       nameInput.addEventListener('input', e=>{
         p.name = e.target.value || `Player ${i+1}`;
-        const labC = document.getElementById(`labC${i}`);
-        const labF = document.getElementById(`labF${i}`);
-        if(labC) labC.textContent = p.name;
-        if(labF) labF.textContent = p.name;
-        renderTrack();
-        save();
       });
       const posPill = document.createElement('div');
-      posPill.className = 'pill';
+      posPill.className = 'tiny';
       posPill.id = `posPill${i}`;
-      posPill.textContent = 'Moves: 0 • Rank: -';
+      posPill.textContent = 'Moves: 0';
 
-      const rowName = document.createElement('div'); rowName.textContent = `Seat #${i+1}`; rowName.className = 'pill';
-      elNameGrid.append(nameInput,posPill,rowName);
+      const seat = document.createElement('div');
+      seat.className='tiny';
+      seat.textContent = `Seat #${i+1}`;
+      elNameGrid.append(nameInput,posPill,seat);
     });
   }
 
   function buildRoundInputs(){
     elRoundGrid.innerHTML = '';
-    const h1 = mk('div','pill','Player'); const h2 = mk('div','pill','Correct'); const h3 = mk('div','pill','Fastest');
+    const h1 = mk('div','tiny','Player'); const h2 = mk('div','tiny','Correct'); const h3 = mk('div','tiny','Fastest');
     elRoundGrid.append(h1,h2,h3);
-
     state.players.forEach((p,i)=>{
       const nameCell = mk('div',null); const correctCell = mk('div',null); const fastestCell = mk('div',null);
-
       const c = mk('input'); c.type='checkbox'; c.id=`c${i}`;
       const f = mk('input'); f.type='radio'; f.name='fastest'; f.id=`f${i}`;
       const labName = mk('label',null,p.name); labName.htmlFor = `c${i}`; labName.id = `labC${i}`;
-      const labF = mk('label',null,p.name); labF.htmlFor = `f${i}`; labF.id = `labF${i}`;
-
-      nameCell.appendChild(labName);
-      correctCell.appendChild(c);
-      fastestCell.appendChild(f);
+      nameCell.appendChild(labName); correctCell.appendChild(c); fastestCell.appendChild(f);
       elRoundGrid.append(nameCell,correctCell,fastestCell);
     });
 
@@ -312,92 +233,92 @@
     });
   }
 
-  // --- Ranking (dense ranks with ties) ---
-  function computeRanks(){
-    const pos = state.players.map(p=>p.pos);
-    const uniq = [...new Set(pos)].sort((a,b)=>b-a); // high->low
-    const rankOfPos = new Map(uniq.map((p,i)=>[p, i+1]));
-    const freq = new Map(); pos.forEach(p=>freq.set(p,(freq.get(p)||0)+1));
-    return pos.map(p => ({ rank: rankOfPos.get(p), tied: (freq.get(p)>1) }));
+  // ------- Actions -------
+  elApplyRounds.addEventListener('click', ()=>{
+    const v = clamp(parseInt(elTotalRounds.value,10)||30, 1, 100);
+    state.totalRounds = v;
+    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+  });
+
+  elApplyRound.addEventListener('click', applyRound);
+  function applyRound(){
+    const {correct, fastest} = getRoundSelections();
+    if (fastest!==null && !correct.includes(fastest)){ elWarn.style.display='block'; return; }
+    elWarn.style.display='none';
+
+    const deltas = [];
+    correct.forEach(idx => deltas.push({idx, delta:+1}));
+    if (fastest!==null){ deltas.push({idx: fastest, delta:+1}); }
+
+    // Save for undo
+    state.history.push(deltas);
+
+    // Apply logical positions
+    deltas.forEach(({idx, delta})=> state.players[idx].pos += delta);
+
+    // Visual drama: track speed boost & horse surge flags
+    scrollBoost = 250; // px/sec extra, decays
+    surgeFor(deltas.map(d=>d.idx)); // mark who moved this round
+
+    // Round counter
+    if (state.roundNow < state.totalRounds) state.roundNow++;
+    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+
+    // Clear inputs
+    clearRoundSelections();
+    updateSidebarPills();
+    updateUndoBtn();
   }
 
-  // --- Rendering lanes ---
-  function renderTrack(){
-    const cols = state.totalRounds;
-    elTrack.style.setProperty('--cols', String(cols));
-    // clear lanes but keep confetti canvas
-    [...elTrack.querySelectorAll('.lane')].forEach(n=>n.remove());
+  elUndo.addEventListener('click', ()=>{
+    const last = state.history.pop();
+    if (!last) return;
+    last.forEach(({idx, delta})=>{
+      state.players[idx].pos = Math.max(0, state.players[idx].pos - delta);
+    });
+    if (state.roundNow > 1) state.roundNow--;
+    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    updateSidebarPills();
+    updateUndoBtn();
+  });
 
-    const ranks = computeRanks();
+  elReset.addEventListener('click', ()=>{
+    if(!confirm('Reset the race?')) return;
+    state.players.forEach(p=>{ p.pos=0; p.animX=startLineX(); });
+    state.history = [];
+    state.roundNow = 1;
+    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    clearRoundSelections();
+    updateSidebarPills();
+    updateUndoBtn();
+  });
 
-    const maxPos = Math.max(...state.players.map(p=>p.pos));
-    const leaders = new Set(
-      state.players.map((p,i)=> p.pos===maxPos ? i : null).filter(i=>i!==null)
-    );
+  elExport.addEventListener('click', ()=>{
+    const headers = ['Round'].concat(state.players.map(p=>csvEscape(p.name))).join(',');
+    const rows = [headers];
+    const running = state.players.map(()=>0);
+    state.history.forEach((roundDeltas, i)=>{
+      roundDeltas.forEach(({idx, delta})=> running[idx]+=delta);
+      const row = [String(i+1)].concat(running.map(x=>String(x))).join(',');
+      rows.push(row);
+    });
+    const finalRow = ['Final'].concat(state.players.map(p=>String(p.pos))).join(',');
+    rows.push(finalRow);
+    const csv = rows.join('\n');
+    downloadBlob(csv, 'horse_race_results.csv', 'text/csv');
+  });
 
+  function updateSidebarPills(){
     state.players.forEach((p,i)=>{
-      const lane = mk('div','lane');
-
-      const { rank, tied } = ranks[i];
-      let badge;
-      if (rank === 1) badge = tied ? 'T1' : '🥇';
-      else if (rank === 2) badge = tied ? 'T2' : '🥈';
-      else if (rank === 3) badge = tied ? 'T3' : '🥉';
-      else badge = tied ? `T${rank}` : `#${rank}`;
-
-      const nameBox = mk('div','name');
-      nameBox.innerHTML = `<span class="pill">${badge}</span> <strong>${escapeHtml(p.name)}</strong>`;
-      lane.appendChild(nameBox);
-
-      for (let c=0;c<cols;c++){
-        const isFinish = (c === cols-1);
-        const at = (c === Math.min(p.pos, cols-1));
-        const cls = at ? 'horse' + (leaders.has(i)?' lead':'') : 'cell' + (isFinish?' finish':'');
-        const cell = mk('div', cls, at ? '🐎' : (isFinish ? '🏁' : '·'));
-        lane.appendChild(cell);
-      }
-      elTrack.insertBefore(lane, elConfetti);
-
-      // sidebar pill shows moves + rank
       const pill = document.getElementById(`posPill${i}`);
-      if (pill) pill.textContent = `Moves: ${p.pos} • Rank: ${rank}${tied?' (tie)':''}`;
+      if (pill) pill.textContent = `Moves: ${p.pos}`;
     });
-
-    // confetti if anyone finishes
-    const finishCol = state.totalRounds - 1;
-    const anyFinished = state.players.some(p=> p.pos >= finishCol);
-    if (anyFinished){ confettiBurstOnce(); }
-
-    // if we have exactly three finishers, show podium
-    if (state.finishers.length === 3) showPodium();
   }
+  function updateUndoBtn(){ elUndo.disabled = state.history.length===0; }
 
-  // --- Finish order tracking ---
-  function updateFinishers(prevPositions){
-    const finishCol = state.totalRounds - 1;
-    // Collect players who newly crossed the line this apply
-    const newly = [];
-    state.players.forEach((p,i)=>{
-      if (prevPositions[i] < finishCol && p.pos >= finishCol && !state.finishers.includes(i)){
-        newly.push(i);
-      }
-    });
-    // Stable order: by seat index (so simultaneous finishes have deterministic order)
-    newly.sort((a,b)=>a-b);
-    newly.forEach(i=> state.finishers.push(i));
-    save();
-  }
-
-  // --- Helpers ---
-  function mk(tag, cls, txt){ const el=document.createElement(tag); if(cls) el.className=cls; if(txt!=null) el.textContent=txt; return el; }
-  function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-  function clamp(n,min,max){ return Math.min(max,Math.max(min,n)); }
-  function safeParse(s){ try{return JSON.parse(s)}catch{ return null } }
-  function save(){ localStorage.setItem('horseRaceV3podium', JSON.stringify(state)); }
-
+  // ------- Round selection helpers -------
   function getRoundSelections(){
-    const correct = [];
-    let fastest = null;
+    const correct = []; let fastest = null;
     for(let i=0;i<NUM_PLAYERS;i++){
       const c = document.getElementById(`c${i}`).checked;
       const f = document.getElementById(`f${i}`).checked;
@@ -412,250 +333,254 @@
       c.checked=false; f.checked=false; f.dataset.toggled='0';
     }
   }
-  function updateUndoBtn(){ elUndo.disabled = state.history.length===0; }
 
-  function applyDeltas(deltas){
-    state.history.push(deltas);
-    deltas.forEach(({idx, delta})=>{
-      state.players[idx].pos += delta;
-    });
-    save();
-  }
-
-  // --- Actions ---
-  document.getElementById('applyRounds').addEventListener('click', ()=>{
-    let v = clamp(parseInt(elTotalRoundsInput.value,10)||30,1,100);
-    state.totalRounds = v;
-    elRoundTotal.textContent = v;
-    renderTrack(); save();
-  });
-
-  elApplyRound.addEventListener('click', applyRound);
-  function applyRound(){
-    const {correct, fastest} = getRoundSelections();
-    if (fastest!==null && !correct.includes(fastest)){ elWarn.style.display='block'; return; }
-    elWarn.style.display='none';
-
-    const deltas = [];
-    correct.forEach(idx => deltas.push({idx, delta:+1}));
-    if (fastest!==null){ deltas.push({idx: fastest, delta:+1}); }
-
-    // record previous positions for finish detection
-    const prev = state.players.map(p=>p.pos);
-
-    applyDeltas(deltas);
-
-    // finish order update (after movement)
-    updateFinishers(prev);
-
-    if (state.roundNow < state.totalRounds) state.roundNow++;
-    elRoundNow.textContent = state.roundNow;
-
-    clearRoundSelections();
-    renderTrack();
-    updateUndoBtn();
-  }
-
-  elUndo.addEventListener('click', ()=>{
-    const last = state.history.pop();
-    if (!last) return;
-
-    // Undo player positions
-    last.forEach(({idx, delta})=>{
-      state.players[idx].pos = Math.max(0, state.players[idx].pos - delta);
-    });
-
-    // Recompute finishers from scratch (robust after undo)
-    recomputeFinishers();
-
-    if (state.roundNow > 1) state.roundNow--;
-    elRoundNow.textContent = state.roundNow;
-    renderTrack(); updateUndoBtn(); save();
-  });
-
-  function recomputeFinishers(){
-    state.finishers = [];
-    const finishCol = state.totalRounds - 1;
-    // Replay history rounds to learn finish sequence deterministically
-    const tempPos = state.players.map(()=>0);
-    for (const round of state.history){
-      // snapshot before round
-      const before = tempPos.slice();
-      // apply deltas
-      round.forEach(({idx, delta})=> tempPos[idx]+=delta);
-      // detect new finishers this round
-      const newly = [];
-      for (let i=0;i<NUM_PLAYERS;i++){
-        if (before[i] < finishCol && tempPos[i] >= finishCol && !state.finishers.includes(i)){
-          newly.push(i);
-        }
-      }
-      newly.sort((a,b)=>a-b);
-      state.finishers.push(...newly);
-      if (state.finishers.length >= 3) break;
-    }
-  }
-
-  elReset.addEventListener('click', hardReset);
-  function hardReset(){
-    state.players.forEach(p=>p.pos=0);
-    state.history = [];
-    state.finishers = [];
-    state.roundNow = 1;
-    document.querySelectorAll('#roundGrid input').forEach(i=>{ if(i.type==='radio'){ i.dataset.toggled='0'; i.checked=false } else if(i.type==='checkbox'){ i.checked=false } });
-    elRoundNow.textContent = state.roundNow;
-    hidePodium();
-    renderTrack(); updateUndoBtn(); save();
-  }
-
-  elExport.addEventListener('click', ()=>{
-    const headers = ['Round'].concat(state.players.map(p=>csvEscape(p.name))).join(',');
-    const rows = [headers];
-    const running = state.players.map(()=>0);
-    state.history.forEach((roundDeltas, i)=>{
-      roundDeltas.forEach(({idx, delta})=> running[idx]+=delta);
-      const row = [String(i+1)].concat(running.map(x=>String(x))).join(',');
-      rows.push(row);
-    });
-    const finalRow = ['Final'].concat(state.players.map(p=>String(p.pos))).join(',');
-    rows.push(finalRow);
-
-    const csv = rows.join('\n');
-    const blob = new Blob([csv], {type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download='horse_race_results.csv'; a.click();
-    URL.revokeObjectURL(url);
-  });
-  function csvEscape(s){ return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; }
-
-  // --- Keyboard shortcuts ---
+  // ------- Timer (top HUD) -------
+  elStartTop.addEventListener('click', startTimer);
+  elStopTop.addEventListener('click', stopTimer);
   document.addEventListener('keydown', (e)=>{
-    if (e.target.tagName === 'INPUT' && e.target.type==='text') return; // don't hijack name edits
-
+    if (e.target.tagName === 'INPUT' && e.target.type==='text') return;
     if (e.code === 'Space'){ e.preventDefault(); applyRound(); return; }
     if (e.code === 'Backspace'){ e.preventDefault(); elUndo.click(); return; }
     if (e.key.toLowerCase()==='r'){ e.preventDefault(); elReset.click(); return; }
     if (e.key.toLowerCase()==='t'){ e.preventDefault(); if(timerInt) stopTimer(); else startTimer(); return; }
 
-    const num = keyToPlayerIndex(e);
-    if (num!==null){
+    // number keys: fastest vs correct
+    const map = { 'Digit1':0,'Digit2':1,'Digit3':2,'Digit4':3,'Digit5':4,'Digit6':5,'Digit7':6,
+                  'Numpad1':0,'Numpad2':1,'Numpad3':2,'Numpad4':3,'Numpad5':4,'Numpad6':5,'Numpad7':6 };
+    const idx = map[e.code] ?? null;
+    if (idx!==null){
       e.preventDefault();
       if (e.shiftKey){
-        const c = document.getElementById(`c${num}`);
-        c.checked = !c.checked;
+        const c = document.getElementById(`c${idx}`); c.checked = !c.checked;
       } else {
-        const f = document.getElementById(`f${num}`);
+        const f = document.getElementById(`f${idx}`);
         [...document.querySelectorAll('input[name="fastest"]')].forEach(r=>{ r.checked=false; r.dataset.toggled='0'; });
         f.checked = true; f.dataset.toggled='1';
-        const c = document.getElementById(`c${num}`); c.checked = true;
+        const c = document.getElementById(`c${idx}`); c.checked = true;
       }
     }
   });
 
-  function keyToPlayerIndex(e){
-    const map = { 'Digit1':0,'Digit2':1,'Digit3':2,'Digit4':3,'Digit5':4,'Digit6':5,'Digit7':6,
-                  'Numpad1':0,'Numpad2':1,'Numpad3':2,'Numpad4':3,'Numpad5':4,'Numpad6':5,'Numpad7':6 };
-    return (e.code in map) ? map[e.code] : null;
-  }
-
-  // --- Timer bits ---
-  document.getElementById('startTimer').addEventListener('click', startTimer);
-  document.getElementById('stopTimer').addEventListener('click', stopTimer);
   function startTimer(){
     if (timerInt) return;
-    remaining = clamp(parseInt(elSecs.value,10)||20,5,300);
-    elSecs.value = remaining;
+    remaining = clamp(parseInt(elSecsTop.value,10)||20,5,300);
+    elSecsTop.value = remaining;
     tickClock(true);
     timerInt = setInterval(()=>tickClock(true),1000);
   }
-  function stopTimer(){ if(timerInt){ clearInterval(timerInt); timerInt=null; elClock.classList.remove('blink'); } }
+  function stopTimer(){ if(timerInt){ clearInterval(timerInt); timerInt=null; } }
   function tickClock(countdown){
     if (countdown){
-      remaining = Math.max(0, remaining - (timerInt?1:0));
-      if (remaining===0){
-        elClock.classList.add('blink');
-        try{ elBeep.currentTime=0; elBeep.play(); }catch{}
-        stopTimer();
-      }
-      elClock.textContent = fmt(remaining);
+      remaining = Math.max(0, remaining - 1);
+      elClockTop.textContent = fmt(remaining);
+      if (remaining===0) stopTimer();
     } else {
-      const v = clamp(parseInt(elSecs.value,10)||20,5,300);
-      elClock.textContent = fmt(v);
+      const v = clamp(parseInt(elSecsTop.value,10)||20,5,300);
+      elClockTop.textContent = fmt(v);
     }
   }
   function fmt(s){ const m = Math.floor(s/60).toString().padStart(2,'0'); const r=(s%60).toString().padStart(2,'0'); return `${m}:${r}`; }
 
-  // --- Confetti + toast ---
-  let confettiCtx, confettiOnce=false;
-  function resizeConfetti(){
-    elConfetti.width = elTrack.clientWidth;
-    elConfetti.height = elTrack.clientHeight;
-    confettiCtx = elConfetti.getContext('2d');
+  // ------- Canvas animation helpers -------
+  // Track “surge” after Apply: list of indices that moved (for a brief speed boost aura)
+  const surge = new Set();
+  function surgeFor(indices){
+    indices.forEach(i=>surge.add(i));
+    setTimeout(()=>{ indices.forEach(i=>surge.delete(i)); }, 600);
   }
-  function confettiBurstOnce(){
-    if (confettiOnce) return;
-    confettiOnce = true;
-    const N=140, parts=[];
-    for(let i=0;i<N;i++){
-      parts.push({ x: Math.random()*elConfetti.width, y: -10, vx: (Math.random()-0.5)*3, vy: Math.random()*2+2, size: Math.random()*3+2, life: Math.random()*60+40 });
+
+  // Simple easing (per frame lerp)
+  function approach(current, target, dt, speed){
+    const diff = target - current;
+    const step = Math.sign(diff) * Math.min(Math.abs(diff), speed*dt);
+    return current + step;
+  }
+
+  // ------- Main loop -------
+  let lastFrame = 0;
+  function loop(now){
+    const dt = Math.max(0.001, Math.min(0.05, (now - lastFrame)/1000));
+    lastFrame = now;
+    t += dt;
+
+    // Scroll background
+    const scrollPx = (baseScroll + scrollBoost) * dt;
+    trackOffset = (trackOffset + scrollPx) % 2000; // arbitrary loop
+    // decay scroll boost
+    scrollBoost = Math.max(0, scrollBoost - 400*dt);
+
+    // Update horses’ animX toward logical targetX
+    const startX = startLineX(), finishX = finishLineX();
+    const finishIdx = Math.max(1, state.totalRounds - 1);
+
+    state.players.forEach((p,i)=>{
+      const percent = clamp(p.pos / finishIdx, 0, 1);
+      const target = startX + percent * (finishX - startX);
+      const extra = surge.has(i) ? 480 : 280; // speed px/sec when moving
+      p.animX = approach(p.animX, target, dt, extra);
+    });
+
+    draw(dt);
+
+    requestAnimationFrame(loop);
+  }
+
+  // ------- Drawing -------
+  function draw(dt){
+    ctx.clearRect(0,0,W,H);
+
+    // Background layers (parallax)
+    drawSky();
+    drawStands((trackOffset*0.2)%W);
+    drawFence((trackOffset*0.5)%W);
+
+    // Track lanes
+    drawTrackSurface((trackOffset)%W);
+    drawFinish();
+
+    // Horses
+    drawHorses();
+  }
+
+  function drawSky(){
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#0e1530'); g.addColorStop(1,'#0a1022');
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  }
+
+  function drawStands(off){
+    const y = 60;
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#0a1a33';
+    for(let x=-W; x<W*2; x+=160){
+      ctx.fillRect(Math.floor(x - off), y, 120, 30);
+      // crowd dots
+      for(let i=0;i<60;i++){
+        const cx = Math.floor(x - off) + (i*2);
+        const cy = y + 30 + Math.sin((i+ t*3)*0.3)*1.2;
+        ctx.fillRect(cx, cy, 1, 3);
+      }
     }
-    let f=0;
-    function step(){
-      confettiCtx.clearRect(0,0,elConfetti.width,elConfetti.height);
-      parts.forEach(p=>{
-        p.x+=p.vx; p.y+=p.vy; p.vy+=0.03; p.life--;
-        confettiCtx.globalAlpha = Math.max(0,p.life/100);
-        confettiCtx.fillRect(p.x,p.y,p.size,p.size);
-      });
-      f++; if (f<120) requestAnimationFrame(step);
-      else confettiCtx.clearRect(0,0,elConfetti.width,elConfetti.height);
+    ctx.restore();
+  }
+
+  function drawFence(off){
+    const y = 110;
+    ctx.strokeStyle = '#203356';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    // posts
+    ctx.fillStyle = '#1b2a49';
+    for(let x=-W; x<W*2; x+=60){
+      const px = Math.floor(x - off*1.1);
+      ctx.fillRect(px, y-14, 4, 14);
     }
-    confettiCtx.fillStyle = '#9ad1ff';
-    requestAnimationFrame(step);
-  }
-  function toast(msg){
-    elToast.textContent = msg; elToast.style.display='block';
-    clearTimeout(window.__toastTo); window.__toastTo = setTimeout(()=>{ elToast.style.display='none'; }, 2500);
   }
 
-  // --- Podium modal controls ---
-  function showPodium(){
-    // Build podium from first three finishers only
-    const [i1,i2,i3] = state.finishers.slice(0,3);
-    const P = state.players;
-    const step = (place, cls, icon, i) => {
-      if (i==null) return '';
-      const seat = i+1;
-      const name = escapeHtml(P[i].name);
-      const moves = P[i].pos;
-      return `
-        <div class="step ${cls}">
-          <div class="cap">${icon}</div>
-          <div class="inner">
-            <div class="podTitle"><span class="dot"></span><span><strong>${place===1?'1st':place===2?'2nd':'3rd'}</strong></span></div>
-            <div class="podNames">${name}</div>
-            <div class="podSeat">Seat #${seat}</div>
-            <div class="podMoves">Moves: ${moves}</div>
-          </div>
-        </div>
-      `;
-    };
-    // classic layout: 2nd, 1st, 3rd
-    elPodiumContent.innerHTML = step(2,'second','🥈',i2) + step(1,'first','🥇',i1) + step(3,'third','🥉',i3);
+  function drawTrackSurface(off){
+    const top = 140, bottom = H-50;
+    // lane bands
+    const laneH = (bottom - top) / LANES;
+    for(let l=0;l<LANES;l++){
+      const y0 = top + l*laneH;
+      ctx.fillStyle = l%2 ? '#16254a' : '#122042';
+      ctx.fillRect(0, y0, W, laneH-4);
 
-    elPodiumModal.classList.add('show');
-    elPodiumModal.setAttribute('aria-hidden','false');
-  }
-  function hidePodium(){
-    elPodiumModal.classList.remove('show');
-    elPodiumModal.setAttribute('aria-hidden','true');
+      // moving dashed lines
+      ctx.strokeStyle = '#253a6b';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([16,12]);
+      ctx.lineDashOffset = -off*0.6;
+      ctx.beginPath();
+      ctx.moveTo(0, y0 + (laneH*0.5));
+      ctx.lineTo(W, y0 + (laneH*0.5));
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
   }
 
-  // --- Save clock + rounds UI changes ---
-  document.getElementById('totalRounds').addEventListener('change', save);
-  elSecs.addEventListener('change', ()=>tickClock(false));
+  function drawFinish(){
+    const x = finishLineX();
+    const top = 140, bottom = H-50;
+    // finish pole
+    ctx.fillStyle = '#2a467f';
+    ctx.fillRect(x-2, top-18, 4, (bottom-top)+18);
+    // checker banner
+    for(let i=0;i<10;i++){
+      ctx.fillStyle = i%2 ? '#e9f0ff' : '#21345d';
+      ctx.fillRect(x-26 + i*5, top-26, 5, 20);
+    }
+    // label
+    ctx.fillStyle = '#9fb2da';
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillText('FINISH', x-24, top-30);
+  }
 
-  // --- Boot ---
+  function drawHorses(){
+    const top = 140, bottom = H-50;
+    const laneH = (bottom - top) / LANES;
+    const maxPos = Math.max(...state.players.map(p=>p.pos));
+    const leaders = new Set(state.players.map((p,i)=> p.pos===maxPos ? i : null).filter(i=>i!==null));
+
+    state.players.forEach((p,i)=>{
+      const cy = top + i*laneH + laneH*0.5;
+      const x = p.animX;
+
+      // glow if leader
+      if (leaders.has(i)){
+        ctx.save();
+        ctx.shadowColor = 'rgba(255,211,106,.6)';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = 'rgba(255,211,106,.15)';
+        ctx.beginPath(); ctx.arc(x, cy, 18, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+
+      // “speed aura” if surged
+      if (surge.has(i)){
+        ctx.save();
+        ctx.strokeStyle = '#6ac2ff';
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.arc(x, cy, 16, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // horse body (emoji + bob)
+      const bob = Math.sin((t*8)+(i*0.7)) * 3;
+      ctx.font = '20px "Apple Color Emoji","Segoe UI Emoji",system-ui,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🐎', x, cy + bob);
+
+      // name plate
+      ctx.fillStyle = '#0b162b';
+      ctx.strokeStyle = '#22315c';
+      ctx.lineWidth = 1.5;
+      const label = state.players[i].name;
+      const w = ctx.measureText(label).width + 12;
+      ctx.fillRect(x - w/2, cy + 16, w, 16);
+      ctx.strokeRect(x - w/2, cy + 16, w, 16);
+      ctx.fillStyle = '#9fb2da';
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.fillText(label, x, cy + 24);
+    });
+  }
+
+  // ------- Utils -------
+  function mk(tag, cls, txt){ const el=document.createElement(tag); if(cls) el.className=cls; if(txt!=null) el.textContent=txt; return el; }
+  function clamp(n,min,max){ return Math.min(max,Math.max(min,n)); }
+  function csvEscape(s){ return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; }
+  function downloadBlob(content, name, type){
+    const blob = new Blob([content], {type}); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Start!
   init();
 })();
 </script>
