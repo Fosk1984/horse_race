@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Horse Race Quiz — 7 Players, 30 Rounds (fixed seats + live ranks + podium)</title>
+<title>Horse Race Quiz — Podium on 3rd Finisher</title>
 <style>
   :root{
     --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
@@ -37,19 +37,6 @@
   .tiny{font-size:12px; color:var(--muted)}
   .warning{color:var(--bad); font-weight:600; display:none}
 
-  /* Podium */
-  .podium{display:flex; gap:10px; align-items:flex-end; margin-top:8px}
-  .step{flex:1; min-width:0; position:relative; border:1px solid var(--edge); border-radius:12px; background:linear-gradient(180deg,#0f1a30,#0b1324);}
-  .step .cap{position:absolute; top:-24px; left:50%; transform:translateX(-50%); font-size:18px; font-weight:800}
-  .step .inner{padding:10px; display:flex; flex-direction:column; gap:6px; justify-content:flex-end; height:100%}
-  .first{height:130px; outline:2px solid rgba(255,211,106,.3)}
-  .second{height:100px}
-  .third{height:80px}
-  .podTitle{display:flex; align-items:center; gap:10px; margin:0 0 6px; font-weight:700}
-  .podTitle .dot{width:10px; height:10px; border-radius:50%; border:1px solid var(--edge); background:#0b162b}
-  .podNames{font-size:13px; color:var(--muted); word-break:break-word}
-  .podMoves{font-size:12px; color:#9fb2da}
-
   .legend{display:flex; gap:12px; align-items:center; margin-top:8px}
   .legend .swatch{width:16px; height:16px; border:1px solid var(--edge); background:#0b162b; border-radius:4px}
   .legend .swatch.finish{background:#13253f}
@@ -58,7 +45,7 @@
   .lane{display:grid; grid-template-columns: 160px repeat(var(--cols), 1fr); gap:4px; align-items:center; margin:6px 0}
   .lane .name{display:flex; align-items:center; gap:6px; font-weight:700}
   .cell{height:26px; border:1px dashed #233257; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#7987a8}
-  .horse{height:26px; border:2px solid var(--acc); background:#0b162b; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px; transition:transform .12s ease}
+  .horse{height:26px; border:2px solid var(--acc); background:#0b162b; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px}
   .finish{background:#13253f; border-color:#355c92}
   .lead{outline:2px solid var(--gold); box-shadow:0 0 0 2px rgba(255,211,106,.2) inset}
 
@@ -75,6 +62,26 @@
 
   canvas.confetti{position:absolute; inset:0; pointer-events:none; mix-blend-mode:screen; opacity:.9}
   .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:18px; background:#0d1626; border:1px solid #274f7c; padding:8px 12px; border-radius:10px; font-weight:700}
+
+  /* Podium modal (appears ONLY when 3rd finisher arrives) */
+  .modal{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:16px; z-index:50}
+  .modal.show{display:flex}
+  .modalCard{background:var(--card); border:1px solid var(--edge); border-radius:16px; padding:18px; width:min(720px,90vw)}
+  .modalTitle{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+  .modalTitle h2{margin:0; font-size:20px}
+  .modalBtns{display:flex; gap:8px}
+  .podium{display:flex; gap:10px; align-items:flex-end; margin-top:8px}
+  .step{flex:1; min-width:0; position:relative; border:1px solid var(--edge); border-radius:12px; background:linear-gradient(180deg,#0f1a30,#0b1324);}
+  .step .cap{position:absolute; top:-24px; left:50%; transform:translateX(-50%); font-size:18px; font-weight:800}
+  .step .inner{padding:10px; display:flex; flex-direction:column; gap:6px; justify-content:flex-end; height:100%}
+  .first{height:130px; outline:2px solid rgba(255,211,106,.3)}
+  .second{height:100px}
+  .third{height:80px}
+  .podTitle{display:flex; align-items:center; gap:10px; margin:0 0 6px; font-weight:700}
+  .podTitle .dot{width:10px; height:10px; border-radius:50%; border:1px solid var(--edge); background:#0b162b}
+  .podNames{font-size:16px; color:var(--ink); word-break:break-word}
+  .podSeat{font-size:12px; color:#9fb2da}
+  .podMoves{font-size:12px; color:#9fb2da}
 
   /* responsive */
   @media (max-width:920px){
@@ -128,22 +135,31 @@
       </div>
     </div>
 
-    <!-- Track + Podium -->
+    <!-- Track -->
     <div class="card trackWrap">
-      <div class="podium" id="podium">
-        <!-- filled by JS -->
-      </div>
-
       <div class="legend">
         <div class="swatch"></div> Horse position
         <div class="swatch finish"></div> Finish
         <span class="pill">Leader outlined in gold</span>
       </div>
-
       <div id="track" class="track">
         <canvas class="confetti" id="confetti"></canvas>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Podium Modal (hidden until 3rd finisher) -->
+<div class="modal" id="podiumModal" aria-hidden="true">
+  <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="podiumTitle">
+    <div class="modalTitle">
+      <h2 id="podiumTitle">🏆 Final Podium</h2>
+      <div class="modalBtns">
+        <button class="btn" id="closePodium">Close (Esc)</button>
+        <button class="btn warn" id="resetFromPodium">Reset Race</button>
+      </div>
+    </div>
+    <div class="podium" id="podiumContent"></div>
   </div>
 </div>
 
@@ -163,7 +179,8 @@
     totalRounds: 30,
     roundNow: 1,
     players: [],      // {name, pos}
-    history: []       // per round: [{idx, delta}, ...]
+    history: [],      // per round: [{idx, delta}, ...]
+    finishers: []     // array of player indices in exact finish order (max 3 shown)
   };
 
   // --- DOM refs ---
@@ -185,7 +202,12 @@
   const elConfetti = document.getElementById('confetti');
   const elToast = document.getElementById('toast');
   const elBeep = document.getElementById('beep');
-  const elPodium = document.getElementById('podium');
+
+  // Podium modal
+  const elPodiumModal = document.getElementById('podiumModal');
+  const elPodiumContent = document.getElementById('podiumContent');
+  const elClosePodium = document.getElementById('closePodium');
+  const elResetFromPodium = document.getElementById('resetFromPodium');
 
   // --- Timer ---
   let timerInt=null, remaining=0;
@@ -204,7 +226,7 @@
     if (s) elSecs.value = clamp(parseInt(s,10),5,300);
 
     // Load from localStorage if present
-    const saved = safeParse(localStorage.getItem('horseRaceV2'));
+    const saved = safeParse(localStorage.getItem('horseRaceV3podium'));
     if (saved && Array.isArray(saved.players) && saved.players.length===NUM_PLAYERS){
       Object.assign(state, saved);
     } else {
@@ -212,6 +234,7 @@
       state.totalRounds = state.totalRounds || 30;
       state.roundNow = 1;
       state.history = [];
+      state.finishers = [];
     }
 
     // UI priming
@@ -226,6 +249,12 @@
     resizeConfetti();
     window.addEventListener('resize', resizeConfetti);
     tickClock(false);
+
+    // podium controls
+    elClosePodium.addEventListener('click', hidePodium);
+    elResetFromPodium.addEventListener('click', ()=>{ hidePodium(); hardReset(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hidePodium(); });
+    elPodiumModal.addEventListener('click', (e)=>{ if(e.target===elPodiumModal) hidePodium(); });
   }
 
   // --- UI builders ---
@@ -292,41 +321,6 @@
     return pos.map(p => ({ rank: rankOfPos.get(p), tied: (freq.get(p)>1) }));
   }
 
-  function rankGroupsTop3(){
-    // Returns object {1:[{i,name,pos}], 2:[...], 3:[...]} (may be empty arrays)
-    const ranks = computeRanks();
-    const groups = {1:[],2:[],3:[]};
-    state.players.forEach((p,i)=>{
-      const r = ranks[i].rank;
-      if (r>=1 && r<=3) groups[r].push({i, name:p.name, pos:p.pos});
-    });
-    // Sort names within each group by seat index for stability
-    for(const k of [1,2,3]) groups[k].sort((a,b)=>a.i-b.i);
-    return groups;
-  }
-
-  // --- Podium ---
-  function renderPodium(){
-    const groups = rankGroupsTop3();
-    const tmpl = (place, cls, icon) => {
-      const entries = groups[place];
-      const names = entries.length ? entries.map(e=>escapeHtml(e.name)).join(', ') : '—';
-      const posStr = entries.length ? `Moves: ${Math.max(...entries.map(e=>e.pos))}` : '';
-      return `
-        <div class="step ${cls}">
-          <div class="cap">${icon}</div>
-          <div class="inner">
-            <div class="podTitle"><span class="dot"></span><span><strong>${place===1?'1st':place===2?'2nd':'3rd'}</strong></span></div>
-            <div class="podNames">${names}</div>
-            <div class="podMoves">${posStr}</div>
-          </div>
-        </div>
-      `;
-    };
-    // Order: 2nd, 1st, 3rd (classic podium layout)
-    elPodium.innerHTML = tmpl(2,'second','🥈') + tmpl(1,'first','🥇') + tmpl(3,'third','🥉');
-  }
-
   // --- Rendering lanes ---
   function renderTrack(){
     const cols = state.totalRounds;
@@ -341,7 +335,6 @@
       state.players.map((p,i)=> p.pos===maxPos ? i : null).filter(i=>i!==null)
     );
 
-    // Fixed seat order: 0..6
     state.players.forEach((p,i)=>{
       const lane = mk('div','lane');
 
@@ -370,13 +363,29 @@
       if (pill) pill.textContent = `Moves: ${p.pos} • Rank: ${rank}${tied?' (tie)':''}`;
     });
 
-    // winner check
+    // confetti if anyone finishes
     const finishCol = state.totalRounds - 1;
     const anyFinished = state.players.some(p=> p.pos >= finishCol);
-    if (anyFinished){ toast('Finish reached! 🎉'); confettiBurst(); }
+    if (anyFinished){ confettiBurstOnce(); }
 
-    // podium refresh
-    renderPodium();
+    // if we have exactly three finishers, show podium
+    if (state.finishers.length === 3) showPodium();
+  }
+
+  // --- Finish order tracking ---
+  function updateFinishers(prevPositions){
+    const finishCol = state.totalRounds - 1;
+    // Collect players who newly crossed the line this apply
+    const newly = [];
+    state.players.forEach((p,i)=>{
+      if (prevPositions[i] < finishCol && p.pos >= finishCol && !state.finishers.includes(i)){
+        newly.push(i);
+      }
+    });
+    // Stable order: by seat index (so simultaneous finishes have deterministic order)
+    newly.sort((a,b)=>a-b);
+    newly.forEach(i=> state.finishers.push(i));
+    save();
   }
 
   // --- Helpers ---
@@ -384,7 +393,7 @@
   function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
   function clamp(n,min,max){ return Math.min(max,Math.max(min,n)); }
   function safeParse(s){ try{return JSON.parse(s)}catch{ return null } }
-  function save(){ localStorage.setItem('horseRaceV2', JSON.stringify(state)); }
+  function save(){ localStorage.setItem('horseRaceV3podium', JSON.stringify(state)); }
 
   function getRoundSelections(){
     const correct = [];
@@ -431,7 +440,13 @@
     correct.forEach(idx => deltas.push({idx, delta:+1}));
     if (fastest!==null){ deltas.push({idx: fastest, delta:+1}); }
 
+    // record previous positions for finish detection
+    const prev = state.players.map(p=>p.pos);
+
     applyDeltas(deltas);
+
+    // finish order update (after movement)
+    updateFinishers(prev);
 
     if (state.roundNow < state.totalRounds) state.roundNow++;
     elRoundNow.textContent = state.roundNow;
@@ -444,23 +459,54 @@
   elUndo.addEventListener('click', ()=>{
     const last = state.history.pop();
     if (!last) return;
+
+    // Undo player positions
     last.forEach(({idx, delta})=>{
       state.players[idx].pos = Math.max(0, state.players[idx].pos - delta);
     });
+
+    // Recompute finishers from scratch (robust after undo)
+    recomputeFinishers();
+
     if (state.roundNow > 1) state.roundNow--;
     elRoundNow.textContent = state.roundNow;
     renderTrack(); updateUndoBtn(); save();
   });
 
-  elReset.addEventListener('click', ()=>{
-    if (!confirm('Reset the entire race? This clears positions and history.')) return;
+  function recomputeFinishers(){
+    state.finishers = [];
+    const finishCol = state.totalRounds - 1;
+    // Replay history rounds to learn finish sequence deterministically
+    const tempPos = state.players.map(()=>0);
+    for (const round of state.history){
+      // snapshot before round
+      const before = tempPos.slice();
+      // apply deltas
+      round.forEach(({idx, delta})=> tempPos[idx]+=delta);
+      // detect new finishers this round
+      const newly = [];
+      for (let i=0;i<NUM_PLAYERS;i++){
+        if (before[i] < finishCol && tempPos[i] >= finishCol && !state.finishers.includes(i)){
+          newly.push(i);
+        }
+      }
+      newly.sort((a,b)=>a-b);
+      state.finishers.push(...newly);
+      if (state.finishers.length >= 3) break;
+    }
+  }
+
+  elReset.addEventListener('click', hardReset);
+  function hardReset(){
     state.players.forEach(p=>p.pos=0);
     state.history = [];
+    state.finishers = [];
     state.roundNow = 1;
     document.querySelectorAll('#roundGrid input').forEach(i=>{ if(i.type==='radio'){ i.dataset.toggled='0'; i.checked=false } else if(i.type==='checkbox'){ i.checked=false } });
     elRoundNow.textContent = state.roundNow;
+    hidePodium();
     renderTrack(); updateUndoBtn(); save();
-  });
+  }
 
   elExport.addEventListener('click', ()=>{
     const headers = ['Round'].concat(state.players.map(p=>csvEscape(p.name))).join(',');
@@ -486,25 +532,18 @@
   document.addEventListener('keydown', (e)=>{
     if (e.target.tagName === 'INPUT' && e.target.type==='text') return; // don't hijack name edits
 
-    // Space = Apply round
     if (e.code === 'Space'){ e.preventDefault(); applyRound(); return; }
-    // Backspace = Undo
     if (e.code === 'Backspace'){ e.preventDefault(); elUndo.click(); return; }
-    // R = reset
     if (e.key.toLowerCase()==='r'){ e.preventDefault(); elReset.click(); return; }
-    // T = timer toggle
     if (e.key.toLowerCase()==='t'){ e.preventDefault(); if(timerInt) stopTimer(); else startTimer(); return; }
 
-    // 1..7 or Numpad1..7
     const num = keyToPlayerIndex(e);
     if (num!==null){
       e.preventDefault();
       if (e.shiftKey){
-        // toggle correct only
         const c = document.getElementById(`c${num}`);
         c.checked = !c.checked;
       } else {
-        // set fastest and ensure correct
         const f = document.getElementById(`f${num}`);
         [...document.querySelectorAll('input[name="fastest"]')].forEach(r=>{ r.checked=false; r.dataset.toggled='0'; });
         f.checked = true; f.dataset.toggled='1';
@@ -520,9 +559,8 @@
   }
 
   // --- Timer bits ---
-  elStart.addEventListener('click', startTimer);
-  elStop.addEventListener('click', stopTimer);
-
+  document.getElementById('startTimer').addEventListener('click', startTimer);
+  document.getElementById('stopTimer').addEventListener('click', stopTimer);
   function startTimer(){
     if (timerInt) return;
     remaining = clamp(parseInt(elSecs.value,10)||20,5,300);
@@ -548,23 +586,18 @@
   function fmt(s){ const m = Math.floor(s/60).toString().padStart(2,'0'); const r=(s%60).toString().padStart(2,'0'); return `${m}:${r}`; }
 
   // --- Confetti + toast ---
-  let confettiCtx;
+  let confettiCtx, confettiOnce=false;
   function resizeConfetti(){
     elConfetti.width = elTrack.clientWidth;
     elConfetti.height = elTrack.clientHeight;
     confettiCtx = elConfetti.getContext('2d');
   }
-  function confettiBurst(){
+  function confettiBurstOnce(){
+    if (confettiOnce) return;
+    confettiOnce = true;
     const N=140, parts=[];
     for(let i=0;i<N;i++){
-      parts.push({
-        x: Math.random()*elConfetti.width,
-        y: -10,
-        vx: (Math.random()-0.5)*3,
-        vy: Math.random()*2+2,
-        size: Math.random()*3+2,
-        life: Math.random()*60+40
-      });
+      parts.push({ x: Math.random()*elConfetti.width, y: -10, vx: (Math.random()-0.5)*3, vy: Math.random()*2+2, size: Math.random()*3+2, life: Math.random()*60+40 });
     }
     let f=0;
     function step(){
@@ -580,10 +613,42 @@
     confettiCtx.fillStyle = '#9ad1ff';
     requestAnimationFrame(step);
   }
-  let toastTo=null;
   function toast(msg){
     elToast.textContent = msg; elToast.style.display='block';
-    clearTimeout(toastTo); toastTo = setTimeout(()=>{ elToast.style.display='none'; }, 2500);
+    clearTimeout(window.__toastTo); window.__toastTo = setTimeout(()=>{ elToast.style.display='none'; }, 2500);
+  }
+
+  // --- Podium modal controls ---
+  function showPodium(){
+    // Build podium from first three finishers only
+    const [i1,i2,i3] = state.finishers.slice(0,3);
+    const P = state.players;
+    const step = (place, cls, icon, i) => {
+      if (i==null) return '';
+      const seat = i+1;
+      const name = escapeHtml(P[i].name);
+      const moves = P[i].pos;
+      return `
+        <div class="step ${cls}">
+          <div class="cap">${icon}</div>
+          <div class="inner">
+            <div class="podTitle"><span class="dot"></span><span><strong>${place===1?'1st':place===2?'2nd':'3rd'}</strong></span></div>
+            <div class="podNames">${name}</div>
+            <div class="podSeat">Seat #${seat}</div>
+            <div class="podMoves">Moves: ${moves}</div>
+          </div>
+        </div>
+      `;
+    };
+    // classic layout: 2nd, 1st, 3rd
+    elPodiumContent.innerHTML = step(2,'second','🥈',i2) + step(1,'first','🥇',i1) + step(3,'third','🥉',i3);
+
+    elPodiumModal.classList.add('show');
+    elPodiumModal.setAttribute('aria-hidden','false');
+  }
+  function hidePodium(){
+    elPodiumModal.classList.remove('show');
+    elPodiumModal.setAttribute('aria-hidden','true');
   }
 
   // --- Save clock + rounds UI changes ---
