@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Horse Race Quiz — 7 Players, 30 Rounds (fixed seats + live ranks)</title>
+<title>Horse Race Quiz — 7 Players, 30 Rounds (fixed seats + live ranks + podium)</title>
 <style>
   :root{
     --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
@@ -37,6 +37,23 @@
   .tiny{font-size:12px; color:var(--muted)}
   .warning{color:var(--bad); font-weight:600; display:none}
 
+  /* Podium */
+  .podium{display:flex; gap:10px; align-items:flex-end; margin-top:8px}
+  .step{flex:1; min-width:0; position:relative; border:1px solid var(--edge); border-radius:12px; background:linear-gradient(180deg,#0f1a30,#0b1324);}
+  .step .cap{position:absolute; top:-24px; left:50%; transform:translateX(-50%); font-size:18px; font-weight:800}
+  .step .inner{padding:10px; display:flex; flex-direction:column; gap:6px; justify-content:flex-end; height:100%}
+  .first{height:130px; outline:2px solid rgba(255,211,106,.3)}
+  .second{height:100px}
+  .third{height:80px}
+  .podTitle{display:flex; align-items:center; gap:10px; margin:0 0 6px; font-weight:700}
+  .podTitle .dot{width:10px; height:10px; border-radius:50%; border:1px solid var(--edge); background:#0b162b}
+  .podNames{font-size:13px; color:var(--muted); word-break:break-word}
+  .podMoves{font-size:12px; color:#9fb2da}
+
+  .legend{display:flex; gap:12px; align-items:center; margin-top:8px}
+  .legend .swatch{width:16px; height:16px; border:1px solid var(--edge); background:#0b162b; border-radius:4px}
+  .legend .swatch.finish{background:#13253f}
+
   .track{margin-top:10px; border:1px solid var(--edge); border-radius:12px; padding:10px; background:#0f1527; position:relative; overflow:hidden}
   .lane{display:grid; grid-template-columns: 160px repeat(var(--cols), 1fr); gap:4px; align-items:center; margin:6px 0}
   .lane .name{display:flex; align-items:center; gap:6px; font-weight:700}
@@ -44,9 +61,6 @@
   .horse{height:26px; border:2px solid var(--acc); background:#0b162b; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px; transition:transform .12s ease}
   .finish{background:#13253f; border-color:#355c92}
   .lead{outline:2px solid var(--gold); box-shadow:0 0 0 2px rgba(255,211,106,.2) inset}
-  .legend{display:flex; gap:12px; align-items:center; margin-top:8px}
-  .legend .swatch{width:16px; height:16px; border:1px solid var(--edge); background:#0b162b; border-radius:4px}
-  .legend .swatch.finish{background:#13253f}
 
   .perRound{margin-top:12px; border-top:1px dashed var(--edge); padding-top:12px}
   .perRound h3{margin:0 0 8px; font-size:16px}
@@ -114,13 +128,18 @@
       </div>
     </div>
 
-    <!-- Track -->
+    <!-- Track + Podium -->
     <div class="card trackWrap">
+      <div class="podium" id="podium">
+        <!-- filled by JS -->
+      </div>
+
       <div class="legend">
         <div class="swatch"></div> Horse position
         <div class="swatch finish"></div> Finish
         <span class="pill">Leader outlined in gold</span>
       </div>
+
       <div id="track" class="track">
         <canvas class="confetti" id="confetti"></canvas>
       </div>
@@ -166,6 +185,7 @@
   const elConfetti = document.getElementById('confetti');
   const elToast = document.getElementById('toast');
   const elBeep = document.getElementById('beep');
+  const elPodium = document.getElementById('podium');
 
   // --- Timer ---
   let timerInt=null, remaining=0;
@@ -272,7 +292,42 @@
     return pos.map(p => ({ rank: rankOfPos.get(p), tied: (freq.get(p)>1) }));
   }
 
-  // --- Rendering ---
+  function rankGroupsTop3(){
+    // Returns object {1:[{i,name,pos}], 2:[...], 3:[...]} (may be empty arrays)
+    const ranks = computeRanks();
+    const groups = {1:[],2:[],3:[]};
+    state.players.forEach((p,i)=>{
+      const r = ranks[i].rank;
+      if (r>=1 && r<=3) groups[r].push({i, name:p.name, pos:p.pos});
+    });
+    // Sort names within each group by seat index for stability
+    for(const k of [1,2,3]) groups[k].sort((a,b)=>a.i-b.i);
+    return groups;
+  }
+
+  // --- Podium ---
+  function renderPodium(){
+    const groups = rankGroupsTop3();
+    const tmpl = (place, cls, icon) => {
+      const entries = groups[place];
+      const names = entries.length ? entries.map(e=>escapeHtml(e.name)).join(', ') : '—';
+      const posStr = entries.length ? `Moves: ${Math.max(...entries.map(e=>e.pos))}` : '';
+      return `
+        <div class="step ${cls}">
+          <div class="cap">${icon}</div>
+          <div class="inner">
+            <div class="podTitle"><span class="dot"></span><span><strong>${place===1?'1st':place===2?'2nd':'3rd'}</strong></span></div>
+            <div class="podNames">${names}</div>
+            <div class="podMoves">${posStr}</div>
+          </div>
+        </div>
+      `;
+    };
+    // Order: 2nd, 1st, 3rd (classic podium layout)
+    elPodium.innerHTML = tmpl(2,'second','🥈') + tmpl(1,'first','🥇') + tmpl(3,'third','🥉');
+  }
+
+  // --- Rendering lanes ---
   function renderTrack(){
     const cols = state.totalRounds;
     elTrack.style.setProperty('--cols', String(cols));
@@ -319,6 +374,9 @@
     const finishCol = state.totalRounds - 1;
     const anyFinished = state.players.some(p=> p.pos >= finishCol);
     if (anyFinished){ toast('Finish reached! 🎉'); confettiBurst(); }
+
+    // podium refresh
+    renderPodium();
   }
 
   // --- Helpers ---
