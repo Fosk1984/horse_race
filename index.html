@@ -3,33 +3,28 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Horse Race Quiz — SVG Jerseys + Names Behind Horses</title>
+<title>Horse Race Quiz — More Realistic SVG Horses</title>
 <style>
   :root{
     --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
-    --ok:#33d17a; --bad:#ff6b6b; --acc:#6ac2ff; --gold:#ffd36a;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0; background:var(--bg); color:var(--ink); font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
-
   .raceTop{height:50vh; min-height:360px; position:relative; border-bottom:1px solid var(--edge)}
   canvas#raceCanvas{position:absolute; inset:0; width:100%; height:100%}
-
   .hud{
     position:absolute; left:12px; top:10px; display:flex; gap:8px; flex-wrap:wrap;
     background:rgba(15,21,39,.5); border:1px solid var(--edge); backdrop-filter:blur(6px);
     padding:8px 10px; border-radius:10px; font-size:12px
   }
   .hud .pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#0f1527; border:1px solid var(--edge); color:var(--muted)}
-  .hud .title{font-weight:800; color:var(--ink)}
+  .hud .title{font-weight:800}
   .hudRight{position:absolute; right:12px; top:10px; display:flex; gap:10px; align-items:center}
   .clock{font-variant-numeric:tabular-nums; font-weight:800}
   .btnTiny{cursor:pointer; border:1px solid var(--edge); background:#0f1527; color:var(--ink); padding:6px 8px; border-radius:8px; font-weight:700; font-size:12px}
-
   .bottom{max-width:1100px; margin:18px auto; padding:0 16px 24px}
   .card{background:var(--card); border:1px solid var(--edge); border-radius:12px; padding:14px}
-
   .row{display:flex; align-items:center; gap:10px; margin:8px 0}
   label{font-size:14px;color:var(--muted)}
   input[type="text"],input[type="number"]{background:#0f1527; color:var(--ink); border:1px solid var(--edge); border-radius:8px; padding:6px 8px}
@@ -38,29 +33,20 @@
   .btn.good{border-color:#245c43; background:#0c1a16}
   .btn.warn{border-color:#5c2424; background:#1a0c0c}
   .btn.accent{border-color:#274f7c; background:#0d1626}
-  .btn.gold{border-color:#7c6a27; background:#1a1506; color:var(--gold)}
-
+  .btn.gold{border-color:#7c6a27; background:#1a1506}
   .playersGrid{display:grid; grid-template-columns: 1fr auto auto; gap:8px 12px; align-items:center; margin-top:8px}
   .tiny{font-size:12px; color:var(--muted)}
-  .warning{color:var(--bad); font-weight:600; display:none}
-
+  .warning{color:#ff6b6b; font-weight:600; display:none}
   .perRound{margin-top:12px; border-top:1px dashed var(--edge); padding-top:12px}
   .perRound h3{margin:0 0 8px; font-size:16px}
-  .perRound .grid{display:grid; grid-template-columns: 1fr 90px 90px; gap:8px 12px; align-items:center}
+  .perRound .grid{display:grid; grid-template-columns:1fr 90px 90px; gap:8px 12px; align-items:center}
   .footerBtns{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap}
-
-  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:18px; background:#0d1626; border:1px solid #274f7c; padding:8px 12px; border-radius:10px; font-weight:700}
-
-  @media (max-width:920px){
-    .perRound .grid{grid-template-columns: 1fr 70px 70px}
-  }
 </style>
 </head>
 <body>
 
 <div class="raceTop">
   <canvas id="raceCanvas"></canvas>
-
   <div class="hud">
     <span class="title">🐎 Horse Race</span>
     <span id="roundHud" class="pill">Round 1/30</span>
@@ -84,10 +70,8 @@
       <button class="btn accent" id="applyRounds">Apply</button>
       <span class="tiny">Keys: <strong>1–7</strong> fastest (+correct), <strong>Shift+1–7</strong> toggle correct, <strong>Space</strong> Apply, <strong>Backspace</strong> Undo, <strong>R</strong> Reset, <strong>T</strong> Timer.</span>
     </div>
-
     <div class="row"><label>Player names</label></div>
     <div class="playersGrid" id="nameGrid"></div>
-
     <div class="perRound">
       <h3>Round Input</h3>
       <div class="tiny">Tick everyone who was <strong>correct</strong>. Select <strong>fastest</strong> among them. Then Apply.</div>
@@ -103,23 +87,27 @@
   </div>
 </div>
 
-<div class="toast" id="toast" style="display:none"></div>
-
 <script>
 (function(){
-  // ------- Config & State -------
+  // ---------- Config ----------
   const NUM_PLAYERS = 7;
-  const INIT_NAMES = ["Player 1","Player 2","Player 3","Player 4","Player 5","Player 6","Player 7"];
-  const SILKS = ["#e74c3c","#3498db","#2ecc71","#f1c40f","#9b59b6","#e67e22","#1abc9c"]; // jersey colours
+  const INIT_NAMES  = ["Player 1","Player 2","Player 3","Player 4","Player 5","Player 6","Player 7"];
+  // jersey colours
+  const SILKS = ["#e74c3c","#3498db","#2ecc71","#f1c40f","#9b59b6","#e67e22","#1abc9c"];
 
+  // horse scale (bigger = more screen presence)
+  const HORSE_W = 92, HORSE_H = 60;  // draw size
+  const FRAMES = 6;                  // smoother loop
+
+  // ---------- State ----------
   const state = {
     totalRounds: 30,
     roundNow: 1,
-    players: [],          // {name, pos, animX}
+    players: [],        // {name, pos, animX}
     history: []
   };
 
-  // ------- DOM (bottom) -------
+  // ---------- DOM ----------
   const elTotalRounds = document.getElementById('totalRounds');
   const elApplyRounds = document.getElementById('applyRounds');
   const elNameGrid = document.getElementById('nameGrid');
@@ -130,108 +118,171 @@
   const elReset = document.getElementById('resetRace');
   const elExport = document.getElementById('exportCsv');
   const elRoundHud = document.getElementById('roundHud');
-
-  // ------- Timer (top HUD) -------
   const elSecsTop = document.getElementById('secsTop');
   const elStartTop = document.getElementById('startTimerTop');
   const elStopTop  = document.getElementById('stopTimerTop');
   const elClockTop = document.getElementById('clockTop');
+
+  // ---------- Timer ----------
   let timerInt=null, remaining=0;
 
-  // ------- Canvas -------
+  // ---------- Canvas ----------
   const canvas = document.getElementById('raceCanvas');
   const ctx = canvas.getContext('2d');
-  let W=0, H=0, t=0;
-  let baseScroll = 140, scrollBoost = 0, trackOffset = 0;
+  let W=0, H=0, t=0, lastFrame=0;
+  let baseScroll=140, scrollBoost=0, trackOffset=0;
 
-  const leftPad = 100, rightPad = 80;
+  const leftPad = 110, rightPad=90;
   const finishLineX = ()=> W - rightPad;
   const startLineX  = ()=> leftPad;
 
-  // --- SVG horse frames (3-frame gallop), bigger, per-player colour + number ---
-  const HORSE_W = 72, HORSE_H = 46;
-  const horseFrames = Array.from({length:NUM_PLAYERS}, ()=>[]);
+  // ---------- Horse frames (SVG → Image) ----------
+  const framesByPlayer = Array.from({length:NUM_PLAYERS}, ()=>Array(FRAMES));
+  /**
+   * Build one SVG frame:
+   * - More detailed silhouette (body, neck/head, mane, tail w/ swish)
+   * - Two front + two hind legs with jointed segments per frame
+   * - Slight head nod per frame
+   * - Coloured silk cap & saddlecloth with number
+   */
+  function svgDataUrl(frameIdx, silk, num){
+    // Head nod & tail swish offsets
+    const nod = [0, 0.6, 1.0, 0.6, 0, -0.4][frameIdx];
+    const tail = [0, 1.6, 2.6, 1.6, 0, -1.2][frameIdx];
 
-  function svgDataUrl(frame, silk, number, body="#f7f7fb", stroke="#0b162b"){
-    const legPos = [
-      [[10,36,18,44],[24,36,18,44],[36,36,46,44],[52,36,46,44]],
-      [[10,36,16,44],[24,36,32,44],[36,36,32,44],[52,36,60,44]],
-      [[10,36,18,44],[24,36,20,44],[36,36,48,44],[52,36,46,44]],
-    ][frame%3];
+    // Leg angles (degrees) for a gallop cycle (very approximate)
+    // order: fore near, fore off, hind near, hind off
+    const LEG = [
+      {s:  20, e:  55},  // frame 0: stretched
+      {s:   5, e:  30},
+      {s: -10, e:  20},
+      {s:  35, e:  75},
+
+      {s: -10, e:  20},  // frame 1
+      {s:  35, e:  75},
+      {s:  15, e:  45},
+      {s:   0, e:  30},
+
+      {s:  15, e:  45},  // frame 2: gathered
+      {s:   0, e:  30},
+      {s:  25, e:  55},
+      {s:  -5, e:  20},
+
+      {s:  35, e:  75},  // frame 3
+      {s:  -5, e:  20},
+      {s:  -5, e:  20},
+      {s:  30, e:  60},
+
+      {s:  10, e:  40},  // frame 4
+      {s:  20, e:  50},
+      {s:  10, e:  40},
+      {s:  20, e:  50},
+
+      {s:   0, e:  30},  // frame 5
+      {s:  30, e:  60},
+      {s: -10, e:  20},
+      {s:  35, e:  70},
+    ];
+    const set = LEG.slice(frameIdx*4, frameIdx*4+4);
+
+    // Small helpers
+    const rad = d => d * Math.PI / 180;
+    function legPath(x,y,thigh,shank,ang1,ang2){
+      // simple 2-seg limb
+      const kx = x + Math.cos(rad(ang1)) * thigh;
+      const ky = y + Math.sin(rad(ang1)) * thigh;
+      const hx = kx + Math.cos(rad(ang1+ang2)) * shank;
+      const hy = ky + Math.sin(rad(ang1+ang2)) * shank;
+      return `M${x} ${y} L${kx} ${ky} L${hx} ${hy}`;
+    }
+
+    // Base points (viewBox 0 0 120 78)
+    // Body ellipse-ish, head to the right.
     const svg =
-`<svg xmlns="http://www.w3.org/2000/svg" width="${HORSE_W}" height="${HORSE_H}" viewBox="0 0 72 46">
-  <g fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 26 C 26 16, 46 16, 58 26 C 50 32, 20 32, 12 26 Z" fill="${body}" />
-    <path d="M44 24 L 58 18 L 66 21 L 61 24 L 52 26 Z" fill="${body}" />
-    <circle cx="66" cy="21" r="1.6" fill="${stroke}"/>
-    <path d="M10 26 Q 4 28, 6 34" />
-    <path d="M${legPos[0][0]} ${legPos[0][1]} L ${legPos[0][2]} ${legPos[0][3]}" />
-    <path d="M${legPos[1][0]} ${legPos[1][1]} L ${legPos[1][2]} ${legPos[1][3]}" />
-    <path d="M${legPos[2][0]} ${legPos[2][1]} L ${legPos[2][2]} ${legPos[2][3]}" />
-    <path d="M${legPos[3][0]} ${legPos[3][1]} L ${legPos[3][2]} ${legPos[3][3]}" />
+`<svg xmlns="http://www.w3.org/2000/svg" width="${HORSE_W}" height="${HORSE_H}" viewBox="0 0 120 78">
+  <defs>
+    <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#513a2d"/>
+      <stop offset="100%" stop-color="#2f241e"/>
+    </linearGradient>
+    <linearGradient id="maneGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#121212"/>
+      <stop offset="100%" stop-color="#1c1c1c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tail swish -->
+  <path d="M18 ${42 + tail} q -10 6, -8 16 q 8 -6, 18 -2 q -8 -6, -10 -14"
+        fill="url(#maneGrad)" stroke="#111" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Body -->
+  <path d="M20 42
+           C 36 28, 74 28, 93 42
+           C 84 54, 32 54, 20 42 Z"
+        fill="url(#bodyGrad)" stroke="#1a120e" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Neck + Head (with slight nod) -->
+  <g transform="translate(0,${-nod})">
+    <path d="M74 40 L 96 31 L 111 36 L 103 42 L 86 46 Z"
+          fill="url(#bodyGrad)" stroke="#1a120e" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Ear -->
+    <path d="M98 29 l 4 -6 l 5 4" fill="#2b211b" stroke="#1a120e" stroke-width="1.2"/>
+    <!-- Eye -->
+    <circle cx="109" cy="36" r="1.8" fill="#0b0b0b"/>
+    <!-- Mane -->
+    <path d="M70 34 q 6 -10, 22 -8 q -8 10, -12 16 q -6 2, -10 -2"
+          fill="url(#maneGrad)" stroke="#111" stroke-width="1.2" />
   </g>
+
+  <!-- Legs (draw hind behind body first for layering) -->
+  <g stroke="#141414" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Hind near (rear layer) -->
+    <path d="${legPath(40,52,16,18, 170-set[2].s, 20+set[2].e)}"/>
+    <!-- Fore near (rear layer) -->
+    <path d="${legPath(62,52,15,17, 200-set[0].s, 15+set[0].e)}"/>
+  </g>
+
+  <!-- Jersey / Saddlecloth + number -->
   <g>
-    <path d="M56 17 q 5 -5, 9 0 q -5 2, -9 0 Z" fill="${silk}" stroke="${stroke}" stroke-width="1.3"/>
-    <rect x="26" y="20" rx="2" ry="2" width="18" height="12" fill="${silk}" stroke="${stroke}" stroke-width="1.2"/>
-    <text x="35" y="29" font-size="10" text-anchor="middle" fill="#ffffff" font-family="system-ui, ui-sans-serif">${number}</text>
+    <rect x="50" y="38" rx="3" ry="3" width="22" height="14" fill="${silk}" stroke="#111" stroke-width="1.4"/>
+    <text x="61" y="49" font-size="10.5" font-weight="700" text-anchor="middle"
+          fill="#ffffff" font-family="system-ui, ui-sans-serif">${num}</text>
+    <!-- Cap -->
+    <path d="M95 ${30-nod} q 7 -6, 13 0 q -7 3, -13 0 Z" fill="${silk}" stroke="#111" stroke-width="1.2"/>
+  </g>
+
+  <!-- Front legs (front layer) -->
+  <g stroke="#0f0f0f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Fore off -->
+    <path d="${legPath(66,52,16,18, 240-set[1].s, 10+set[1].e)}"/>
+    <!-- Hind off -->
+    <path d="${legPath(46,52,17,19, 140-set[3].s, 25+set[3].e)}"/>
   </g>
 </svg>`;
+
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
   }
-  function preloadHorses(){
-    for(let p=0; p<NUM_PLAYERS; p++){
+
+  function preloadFrames(){
+    for(let p=0;p<NUM_PLAYERS;p++){
       const silk = SILKS[p % SILKS.length];
-      for(let f=0; f<3; f++){
+      for(let f=0; f<FRAMES; f++){
         const img = new Image();
         img.src = svgDataUrl(f, silk, p+1);
-        horseFrames[p][f] = img;
+        framesByPlayer[p][f] = img;
       }
     }
   }
 
-  function resize(){
-    const r = canvas.getBoundingClientRect();
-    canvas.width = Math.floor(r.width * devicePixelRatio);
-    canvas.height = Math.floor(r.height * devicePixelRatio);
-    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    W = r.width; H = r.height;
-  }
-  window.addEventListener('resize', resize);
-
-  // ------- Init -------
-  function init(){
-    const url = new URL(location.href);
-    for (let i=1;i<=NUM_PLAYERS;i++){
-      const v = url.searchParams.get('p'+i);
-      if (v) INIT_NAMES[i-1] = decodeURIComponent(v);
-    }
-
-    state.players = Array.from({length:NUM_PLAYERS}, (_,i)=>({name: INIT_NAMES[i], pos:0, animX: startLineX()}));
-    buildNameEditor();
-    buildRoundInputs();
-    elTotalRounds.value = state.totalRounds;
-    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
-
-    preloadHorses();
-    resize();
-    lastFrame = performance.now();
-    requestAnimationFrame(loop);
-  }
-
-  // ------- UI builders -------
+  // ---------- Init UI ----------
   function buildNameEditor(){
     elNameGrid.innerHTML = '';
-    state.players.forEach((p, i)=>{
+    state.players.forEach((p,i)=>{
       const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.value = p.name;
-      nameInput.addEventListener('input', e=>{
-        p.name = e.target.value || `Player ${i+1}`;
-      });
-      const posPill = document.createElement('div');
-      posPill.className = 'tiny'; posPill.id = `posPill${i}`; posPill.textContent = 'Moves: 0';
-
-      const seat = document.createElement('div'); seat.className='tiny'; seat.textContent = `Seat #${i+1}`;
+      nameInput.type = 'text'; nameInput.value = p.name;
+      nameInput.addEventListener('input', e=> p.name = e.target.value || `Player ${i+1}`);
+      const posPill = document.createElement('div'); posPill.className='tiny'; posPill.id=`posPill${i}`; posPill.textContent='Moves: 0';
+      const seat = document.createElement('div'); seat.className='tiny'; seat.textContent=`Seat #${i+1}`;
       elNameGrid.append(nameInput,posPill,seat);
     });
   }
@@ -240,13 +291,14 @@
     const h1 = mk('div','tiny','Player'); const h2 = mk('div','tiny','Correct'); const h3 = mk('div','tiny','Fastest');
     elRoundGrid.append(h1,h2,h3);
     state.players.forEach((p,i)=>{
-      const nameCell = mk('div',null); const correctCell = mk('div',null); const fastestCell = mk('div',null);
+      const nameCell=mk('div',null), correctCell=mk('div',null), fastestCell=mk('div',null);
       const c = mk('input'); c.type='checkbox'; c.id=`c${i}`;
       const f = mk('input'); f.type='radio'; f.name='fastest'; f.id=`f${i}`;
-      const labName = mk('label',null,p.name); labName.htmlFor = `c${i}`; labName.id = `labC${i}`;
-      nameCell.appendChild(labName); correctCell.appendChild(c); fastestCell.appendChild(f);
+      const lab = mk('label',null,p.name); lab.htmlFor=`c${i}`; lab.id=`labC${i}`;
+      nameCell.appendChild(lab); correctCell.appendChild(c); fastestCell.appendChild(f);
       elRoundGrid.append(nameCell,correctCell,fastestCell);
     });
+    // radio toggle off
     elRoundGrid.addEventListener('click', (e)=>{
       if(e.target && e.target.type==='radio'){
         e.target.dataset.toggled = e.target.dataset.toggled==='1' ? '0' : '1';
@@ -256,135 +308,51 @@
     });
   }
 
-  // ------- Actions -------
+  // ---------- Controls ----------
   elApplyRounds.addEventListener('click', ()=>{
-    const v = clamp(parseInt(elTotalRounds.value,10)||30, 1, 100);
-    state.totalRounds = v;
+    state.totalRounds = clamp(parseInt(elTotalRounds.value,10)||30,1,100);
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
   });
-
   elApplyRound.addEventListener('click', applyRound);
-  function applyRound(){
-    const {correct, fastest} = getRoundSelections();
-    if (fastest!==null && !correct.includes(fastest)){ elWarn.style.display='block'; return; }
-    elWarn.style.display='none';
+  elUndo.addEventListener('click', undoRound);
+  elReset.addEventListener('click', resetRace);
+  elExport.addEventListener('click', exportCsv);
 
-    const deltas = [];
-    correct.forEach(idx => deltas.push({idx, delta:+1}));
-    if (fastest!==null){ deltas.push({idx: fastest, delta:+1}); }
-
-    state.history.push(deltas);
-    deltas.forEach(({idx, delta})=> state.players[idx].pos += delta);
-
-    scrollBoost = 250;
-    surgeFor(deltas.map(d=>d.idx));
-
-    if (state.roundNow < state.totalRounds) state.roundNow++;
-    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
-
-    clearRoundSelections();
-    updateSidebarPills();
-    updateUndoBtn();
-  }
-
-  elUndo.addEventListener('click', ()=>{
-    const last = state.history.pop();
-    if (!last) return;
-    last.forEach(({idx, delta})=>{
-      state.players[idx].pos = Math.max(0, state.players[idx].pos - delta);
-    });
-    if (state.roundNow > 1) state.roundNow--;
-    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
-    updateSidebarPills(); updateUndoBtn();
-  });
-
-  elReset.addEventListener('click', ()=>{
-    if(!confirm('Reset the race?')) return;
-    state.players.forEach(p=>{ p.pos=0; p.animX=startLineX(); });
-    state.history = [];
-    state.roundNow = 1;
-    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
-    clearRoundSelections();
-    updateSidebarPills(); updateUndoBtn();
-  });
-
-  elExport.addEventListener('click', ()=>{
-    const headers = ['Round'].concat(state.players.map(p=>csvEscape(p.name))).join(',');
-    const rows = [headers];
-    const running = state.players.map(()=>0);
-    state.history.forEach((roundDeltas, i)=>{
-      roundDeltas.forEach(({idx, delta})=> running[idx]+=delta);
-      const row = [String(i+1)].concat(running.map(x=>String(x))).join(',');
-      rows.push(row);
-    });
-    const finalRow = ['Final'].concat(state.players.map(p=>String(p.pos))).join(',');
-    rows.push(finalRow);
-    const csv = rows.join('\n');
-    downloadBlob(csv, 'horse_race_results.csv', 'text/csv');
-  });
-
-  function updateSidebarPills(){
-    state.players.forEach((p,i)=>{
-      const pill = document.getElementById(`posPill${i}`);
-      if (pill) pill.textContent = `Moves: ${p.pos}`;
-    });
-  }
-  function updateUndoBtn(){ elUndo.disabled = state.history.length===0; }
-
-  // ------- Round selection helpers -------
-  function getRoundSelections(){
-    const correct = []; let fastest = null;
-    for(let i=0;i<NUM_PLAYERS;i++){
-      const c = document.getElementById(`c${i}`).checked;
-      const f = document.getElementById(`f${i}`).checked;
-      if (c) correct.push(i);
-      if (f) fastest = i;
-    }
-    return {correct, fastest};
-  }
-  function clearRoundSelections(){
-    for(let i=0;i<NUM_PLAYERS;i++){
-      const c = document.getElementById(`c${i}`); const f = document.getElementById(`f${i}`);
-      c.checked=false; f.checked=false; f.dataset.toggled='0';
-    }
-  }
-
-  // ------- Timer -------
-  elStartTop.addEventListener('click', startTimer);
-  elStopTop.addEventListener('click', stopTimer);
   document.addEventListener('keydown', (e)=>{
-    if (e.target.tagName === 'INPUT' && e.target.type==='text') return;
-    if (e.code === 'Space'){ e.preventDefault(); applyRound(); return; }
-    if (e.code === 'Backspace'){ e.preventDefault(); elUndo.click(); return; }
-    if (e.key.toLowerCase()==='r'){ e.preventDefault(); elReset.click(); return; }
+    if (e.target.tagName==='INPUT' && e.target.type==='text') return;
+    if (e.code==='Space'){ e.preventDefault(); applyRound(); return; }
+    if (e.code==='Backspace'){ e.preventDefault(); undoRound(); return; }
+    if (e.key.toLowerCase()==='r'){ e.preventDefault(); resetRace(); return; }
     if (e.key.toLowerCase()==='t'){ e.preventDefault(); if(timerInt) stopTimer(); else startTimer(); return; }
-    const map = { 'Digit1':0,'Digit2':1,'Digit3':2,'Digit4':3,'Digit5':4,'Digit6':5,'Digit7':6,
-                  'Numpad1':0,'Numpad2':1,'Numpad3':2,'Numpad4':3,'Numpad5':4,'Numpad6':5,'Numpad7':6 };
+    const map = { Digit1:0,Digit2:1,Digit3:2,Digit4:3,Digit5:4,Digit6:5,Digit7:6,
+                  Numpad1:0,Numpad2:1,Numpad3:2,Numpad4:3,Numpad5:4,Numpad6:5,Numpad7:6 };
     const idx = map[e.code] ?? null;
     if (idx!==null){
       e.preventDefault();
       if (e.shiftKey){
-        const c = document.getElementById(`c${idx}`); c.checked = !c.checked;
+        const c = document.getElementById(`c${idx}`); c.checked=!c.checked;
       } else {
         const f = document.getElementById(`f${idx}`);
         [...document.querySelectorAll('input[name="fastest"]')].forEach(r=>{ r.checked=false; r.dataset.toggled='0'; });
-        f.checked = true; f.dataset.toggled='1';
-        const c = document.getElementById(`c${idx}`); c.checked = true;
+        f.checked=true; f.dataset.toggled='1';
+        const c = document.getElementById(`c${idx}`); c.checked=true;
       }
     }
   });
 
+  // timer
+  elStartTop.addEventListener('click', startTimer);
+  elStopTop.addEventListener('click', stopTimer);
   function startTimer(){
     if (timerInt) return;
     remaining = clamp(parseInt(elSecsTop.value,10)||20,5,300);
-    elSecsTop.value = remaining;
-    tickClock(true);
+    elSecsTop.value = remaining; tickClock(true);
     timerInt = setInterval(()=>tickClock(true),1000);
   }
   function stopTimer(){ if(timerInt){ clearInterval(timerInt); timerInt=null; } }
   function tickClock(countdown){
     if (countdown){
-      remaining = Math.max(0, remaining - 1);
+      remaining = Math.max(0, remaining-1);
       elClockTop.textContent = fmt(remaining);
       if (remaining===0) stopTimer();
     } else {
@@ -392,180 +360,151 @@
       elClockTop.textContent = fmt(v);
     }
   }
-  function fmt(s){ const m = Math.floor(s/60).toString().padStart(2,'0'); const r=(s%60).toString().padStart(2,'0'); return `${m}:${r}`; }
+  const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 
-  // ------- Canvas animation helpers -------
-  const surge = new Set();
-  function surgeFor(indices){
-    indices.forEach(i=>surge.add(i));
-    setTimeout(()=>{ indices.forEach(i=>surge.delete(i)); }, 600);
+  // ---------- Round ops ----------
+  function getRoundSelections(){
+    const correct=[]; let fastest=null;
+    for(let i=0;i<NUM_PLAYERS;i++){
+      if (document.getElementById(`c${i}`).checked) correct.push(i);
+      if (document.getElementById(`f${i}`).checked) fastest=i;
+    }
+    return {correct, fastest};
   }
-  function approach(current, target, dt, speed){
-    const diff = target - current;
-    const step = Math.sign(diff) * Math.min(Math.abs(diff), speed*dt);
-    return current + step;
+  function clearRoundSelections(){
+    for(let i=0;i<NUM_PLAYERS;i++){
+      const c = document.getElementById(`c${i}`), f=document.getElementById(`f${i}`);
+      c.checked=false; f.checked=false; f.dataset.toggled='0';
+    }
   }
-
-  // ------- Main loop & drawing -------
-  let lastFrame = 0;
-  function loop(now){
-    const dt = Math.max(0.001, Math.min(0.05, (now - lastFrame)/1000));
-    lastFrame = now; t += dt;
-
-    const scrollPx = (baseScroll + scrollBoost) * dt;
-    trackOffset = (trackOffset + scrollPx) % 2000;
-    scrollBoost = Math.max(0, scrollBoost - 400*dt);
-
-    const startX = startLineX(), finishX = finishLineX();
-    const finishIdx = Math.max(1, state.totalRounds - 1);
-
-    state.players.forEach((p,i)=>{
-      const percent = clamp(p.pos / finishIdx, 0, 1);
-      const target = startX + percent * (finishX - startX);
-      const extra = surge.has(i) ? 520 : 320;
-      p.animX = approach(p.animX, target, dt, extra);
-    });
-
-    draw(dt);
-    requestAnimationFrame(loop);
+  function applyRound(){
+    const {correct, fastest} = getRoundSelections();
+    if (fastest!==null && !correct.includes(fastest)){ elWarn.style.display='block'; return; }
+    elWarn.style.display='none';
+    const deltas=[];
+    correct.forEach(i=>deltas.push({idx:i, delta:+1}));
+    if (fastest!==null) deltas.push({idx:fastest, delta:+1});
+    state.history.push(deltas);
+    deltas.forEach(({idx,delta})=> state.players[idx].pos += delta);
+    if (state.roundNow < state.totalRounds) state.roundNow++;
+    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    clearRoundSelections(); updateSidebar(); updateUndo();
+    scrollBoost = 240;
+    surged.clear(); deltas.forEach(d=>surged.add(d.idx)); setTimeout(()=>{ surged.clear(); }, 650);
   }
-
-  function draw(dt){
-    ctx.clearRect(0,0,W,H);
-    drawSky();
-    drawStands((trackOffset*0.18)%W);
-    drawFence((trackOffset*0.45)%W);
-    drawGrass((trackOffset)%W);
-    drawFinish();
-    drawHorses(); // includes names trailing behind the horses
+  function undoRound(){
+    const last = state.history.pop(); if(!last) return;
+    last.forEach(({idx,delta})=> state.players[idx].pos = Math.max(0, state.players[idx].pos - delta));
+    if (state.roundNow>1) state.roundNow--;
+    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    updateSidebar(); updateUndo();
   }
+  function resetRace(){
+    if(!confirm('Reset the race?')) return;
+    state.players.forEach(p=>{ p.pos=0; p.animX=startLineX(); });
+    state.history=[]; state.roundNow=1;
+    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    clearRoundSelections(); updateSidebar(); updateUndo();
+  }
+  function exportCsv(){
+    const headers = ['Round'].concat(state.players.map(p=>csvEscape(p.name))).join(',');
+    const rows=[headers]; const running=state.players.map(()=>0);
+    state.history.forEach((rd,i)=>{ rd.forEach(({idx,delta})=>running[idx]+=delta);
+      rows.push([String(i+1)].concat(running.map(x=>String(x))).join(',')); });
+    rows.push(['Final'].concat(state.players.map(p=>String(p.pos))).join(','));
+    const csv = rows.join('\n'); downloadBlob(csv, 'horse_race_results.csv', 'text/csv');
+  }
+  function updateSidebar(){ state.players.forEach((p,i)=>{ const el=document.getElementById(`posPill${i}`); if(el) el.textContent=`Moves: ${p.pos}`; }); }
+  function updateUndo(){ elUndo.disabled = state.history.length===0; }
 
-  function drawSky(){
+  // ---------- Canvas loop & drawing ----------
+  const surged = new Set();
+  function approach(cur,tgt,dt,speed){ const d=tgt-cur; const step=Math.sign(d)*Math.min(Math.abs(d), speed*dt); return cur+step; }
+
+  function resize(){
+    const r = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(r.width * devicePixelRatio);
+    canvas.height= Math.floor(r.height* devicePixelRatio);
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    W=r.width; H=r.height;
+  }
+  window.addEventListener('resize', resize);
+
+  function drawBackground(off){
+    // sky
     const g = ctx.createLinearGradient(0,0,0,H);
     g.addColorStop(0,'#0f1836'); g.addColorStop(1,'#0b1329');
-    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-  }
-  function drawStands(off){
-    const y = 60;
-    ctx.save(); ctx.globalAlpha = 0.35; ctx.fillStyle = '#0b1e35';
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // stands
+    const y=60; ctx.save(); ctx.globalAlpha=.35; ctx.fillStyle='#0b1e35';
     for(let x=-W; x<W*2; x+=160){
-      ctx.fillRect(Math.floor(x - off), y, 120, 30);
-      for(let i=0;i<60;i++){
-        const cx = Math.floor(x - off) + (i*2);
-        const cy = y + 30 + Math.sin((i+ t*3)*0.3)*1.2;
-        ctx.fillRect(cx, cy, 1, 3);
-      }
+      ctx.fillRect(Math.floor(x-off*.2), y, 120, 30);
     }
     ctx.restore();
-  }
-  function drawFence(off){
-    const y = 120;
-    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    ctx.fillStyle = '#e8e8e8';
+    // fence
+    const fy=120; ctx.strokeStyle='#fff'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(0,fy); ctx.lineTo(W,fy); ctx.stroke();
+    ctx.fillStyle='#eee';
     for(let x=-W; x<W*2; x+=60){
-      const px = Math.floor(x - off*1.1);
-      ctx.fillRect(px, y-14, 4, 14);
+      const px=Math.floor(x-off*.45); ctx.fillRect(px,fy-14,4,14);
     }
-  }
-  function drawGrass(off){
-    const top = 150, bottom = H-40;
-    const laneH = (bottom - top) / NUM_PLAYERS;
-    for(let l=0;l<NUM_PLAYERS;l++){
-      const y0 = top + l*laneH;
+    // green course
+    const top=150, bot=H-40, lanes=NUM_PLAYERS, laneH=(bot-top)/lanes;
+    for(let l=0;l<lanes;l++){
+      const y0=top+l*laneH;
       ctx.fillStyle = l%2 ? '#2c7a38' : '#2a6f33';
-      ctx.fillRect(0, y0, W, laneH-4);
-      ctx.strokeStyle = '#7ed38d'; ctx.lineWidth = 1.5;
-      ctx.setLineDash([22,14]); ctx.lineDashOffset = -off*0.5;
-      ctx.beginPath(); ctx.moveTo(0, y0 + (laneH*0.5)); ctx.lineTo(W, y0 + (laneH*0.5)); ctx.stroke();
+      ctx.fillRect(0,y0,W,laneH-4);
+      ctx.strokeStyle='#7ed38d'; ctx.lineWidth=1.5; ctx.setLineDash([22,14]); ctx.lineDashOffset=-off*.5;
+      ctx.beginPath(); ctx.moveTo(0, y0+laneH*.5); ctx.lineTo(W, y0+laneH*.5); ctx.stroke();
     }
     ctx.setLineDash([]);
-  }
-  function drawFinish(){
-    const x = finishLineX();
-    const top = 150, bottom = H-40;
-    for(let i=0;i<12;i++){
-      ctx.fillStyle = i%2 ? '#ffffff' : '#cc2a2a';
-      ctx.fillRect(x-3, top-18 + i*6, 6, 6);
-    }
-    for(let i=0;i<10;i++){
-      ctx.fillStyle = i%2 ? '#ffffff' : '#111';
-      ctx.fillRect(x-28 + i*5, top-28, 5, 20);
-    }
-    ctx.fillStyle = '#f0f6ff';
-    ctx.font = '12px system-ui, sans-serif';
-    ctx.fillText('FINISH', x-24, top-32);
+    // finish
+    const fx = W - rightPad, ttop=150, bbot=H-40;
+    for(let i=0;i<12;i++){ ctx.fillStyle=i%2?'#fff':'#cc2a2a'; ctx.fillRect(fx-3, ttop-18+i*6, 6,6); }
+    for(let i=0;i<10;i++){ ctx.fillStyle=i%2?'#fff':'#111'; ctx.fillRect(fx-28+i*5, ttop-28, 5,20); }
+    ctx.fillStyle='#f0f6ff'; ctx.font='12px system-ui, sans-serif'; ctx.fillText('FINISH', fx-24, ttop-32);
   }
 
-  // === NAMES BEHIND HORSES (updated) ===
   function drawHorses(){
-    const top = 150, bottom = H-40;
-    const laneH = (bottom - top) / NUM_PLAYERS;
+    const top=150, bot=H-40, laneH=(bot-top)/NUM_PLAYERS;
     const maxPos = Math.max(...state.players.map(p=>p.pos));
-    const leaders = new Set(state.players.map((p,i)=> p.pos===maxPos ? i : null).filter(i=>i!==null));
-
-    const frame = Math.floor(t*10) % 3;
+    const leaders = new Set(state.players.map((p,i)=> p.pos===maxPos ? i : null).filter(x=>x!==null));
+    const frame = Math.floor(t*9) % FRAMES; // gallop speed
 
     state.players.forEach((p,i)=>{
-      const cy = top + i*laneH + laneH*0.5;
-      const x = p.animX;
+      const cy = top + i*laneH + laneH*.5;
+      const x  = p.animX;
 
-      // Compute name plate geometry first (to draw it underneath/behind)
-      const label = state.players[i].name;
-      ctx.font = '13px system-ui, sans-serif';
+      // trailing name plate (draw underneath horse)
+      const label = p.name;
+      ctx.font='13px system-ui, sans-serif';
       const textW = Math.ceil(ctx.measureText(label).width);
-      const padX = 7, padY = 4;
-      const plateW = textW + padX*2;
-      const plateH = 18;
-      const gap = 8; // gap between horse and plate
+      const padX=7, plateH=18, gap=10;
       const rightEdge = x - (HORSE_W/2) - gap;
-      let plateX = rightEdge - plateW; // left edge of plate (to the left of horse)
-      const plateY = cy - plateH/2 + 1;
+      const plateW = textW + padX*2;
+      const plateX = Math.max(6, rightEdge - plateW);
+      const plateY = cy - plateH/2 + 2;
+      ctx.fillStyle='rgba(11,22,43,.85)'; ctx.strokeStyle='#22315c'; ctx.lineWidth=1.5;
+      ctx.fillRect(plateX, plateY, plateW, plateH); ctx.strokeRect(plateX, plateY, plateW, plateH);
+      ctx.beginPath(); ctx.moveTo(rightEdge, cy); ctx.lineTo(rightEdge-6, cy-5); ctx.lineTo(rightEdge-6, cy+5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#cfe0ff'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(label, plateX+padX, cy);
 
-      // Keep plate on-screen
-      plateX = Math.max(6, plateX);
-
-      // Draw plate (under)
-      ctx.fillStyle = 'rgba(11,22,43,.85)';
-      ctx.strokeStyle = '#22315c';
-      ctx.lineWidth = 1.5;
-      ctx.fillRect(plateX, plateY, plateW, plateH);
-      ctx.strokeRect(plateX, plateY, plateW, plateH);
-
-      // Optional pointer triangle pointing to horse
-      ctx.beginPath();
-      ctx.moveTo(rightEdge, cy);
-      ctx.lineTo(rightEdge - 6, cy - 5);
-      ctx.lineTo(rightEdge - 6, cy + 5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Plate text
-      ctx.fillStyle = '#cfe0ff';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, plateX + padX, cy);
-
-      // Leader glow (drawn above plate but below horse)
+      // leader glow
       if (leaders.has(i)){
-        ctx.save();
-        ctx.shadowColor = 'rgba(255,211,106,.7)'; ctx.shadowBlur = 14;
-        ctx.fillStyle = 'rgba(255,211,106,.18)';
-        ctx.beginPath(); ctx.arc(x, cy, 22, 0, Math.PI*2); ctx.fill();
-        ctx.restore();
+        ctx.save(); ctx.shadowColor='rgba(255,211,106,.7)'; ctx.shadowBlur=14;
+        ctx.fillStyle='rgba(255,211,106,.18)'; ctx.beginPath(); ctx.arc(x,cy,24,0,Math.PI*2); ctx.fill(); ctx.restore();
+      }
+      // surge ring
+      if (surged.has(i)){
+        ctx.save(); ctx.strokeStyle='#6ac2ff'; ctx.globalAlpha=.9; ctx.beginPath(); ctx.arc(x,cy,22,0,Math.PI*2); ctx.stroke(); ctx.restore();
       }
 
-      // Surge ring
-      if (surge.has(i)){
-        ctx.save(); ctx.strokeStyle = '#6ac2ff'; ctx.globalAlpha = 0.9;
-        ctx.beginPath(); ctx.arc(x, cy, 20, 0, Math.PI*2); ctx.stroke(); ctx.restore();
-      }
+      // bob/tilt
+      const bob = Math.sin((t*5.6)+(i*.7))*2.4;
+      const tilt= Math.sin((t*1.8)+(i*.9))*0.05;
 
-      // Bob/tilt + horse (topmost)
-      const bob = Math.sin((t*6)+(i*0.7)) * 2.4;
-      const tilt = Math.sin((t*2)+(i*0.9)) * 0.05;
-      const img = horseFrames[i][frame];
+      // draw frame
+      const img = framesByPlayer[i][frame];
       if (img && img.complete){
         ctx.save(); ctx.translate(x, cy + bob); ctx.rotate(tilt);
         ctx.drawImage(img, -HORSE_W/2, -HORSE_H/2, HORSE_W, HORSE_H);
@@ -574,18 +513,60 @@
     });
   }
 
-  // ------- Utils -------
-  function mk(tag, cls, txt){ const el=document.createElement(tag); if(cls) el.className=cls; if(txt!=null) el.textContent=txt; return el; }
+  function loop(now){
+    const dt = Math.max(0.001, Math.min(0.05,(now-lastFrame)/1000));
+    lastFrame = now; t += dt;
+
+    // scrolling bg
+    const scrollPx = (baseScroll + scrollBoost) * dt;
+    trackOffset = (trackOffset + scrollPx) % 2000;
+    scrollBoost = Math.max(0, scrollBoost - 380*dt);
+
+    // target X by logical pos
+    const startX=startLineX(), finishX=finishLineX();
+    const finishIdx = Math.max(1, state.totalRounds - 1);
+    state.players.forEach((p,i)=>{
+      const percent = clamp(p.pos/finishIdx,0,1);
+      const target = startX + percent*(finishX-startX);
+      const speed = surged.has(i)? 560 : 340;
+      p.animX = approach(p.animX, target, dt, speed);
+    });
+
+    // draw
+    ctx.clearRect(0,0,W,H);
+    drawBackground(trackOffset);
+    drawHorses();
+
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Utils ----------
+  function mk(tag,cls,txt){ const el=document.createElement(tag); if(cls) el.className=cls; if(txt!=null) el.textContent=txt; return el; }
   function clamp(n,min,max){ return Math.min(max,Math.max(min,n)); }
   function csvEscape(s){ return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; }
   function downloadBlob(content, name, type){
-    const blob = new Blob([content], {type}); const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-    URL.revokeObjectURL(url);
+    const blob = new Blob([content], {type}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url);
   }
 
-  // Boot
+  // ---------- Boot ----------
+  function resize(){ const r=canvas.getBoundingClientRect();
+    canvas.width=Math.floor(r.width*devicePixelRatio);
+    canvas.height=Math.floor(r.height*devicePixelRatio);
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    W=r.width; H=r.height; }
+  function init(){
+    const url = new URL(location.href);
+    for(let i=1;i<=NUM_PLAYERS;i++){ const v=url.searchParams.get('p'+i); if(v) INIT_NAMES[i-1]=decodeURIComponent(v); }
+    state.players = Array.from({length:NUM_PLAYERS},(_,i)=>({name:INIT_NAMES[i], pos:0, animX:startLineX()}));
+    buildNameEditor(); buildRoundInputs();
+    elTotalRounds.value = state.totalRounds;
+    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    preloadFrames(); resize(); lastFrame=performance.now(); requestAnimationFrame(loop);
+  }
+  window.addEventListener('resize', resize);
   init();
+
 })();
 </script>
 </body>
