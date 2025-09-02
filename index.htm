@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Horse Race Quiz — 7 Players, 30 Rounds</title>
+<style>
+  :root{
+    --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
+    --ok:#33d17a; --bad:#ff6b6b; --acc:#6ac2ff; --gold:#ffd36a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--ink);}
+  .app{max-width:1100px; margin:24px auto; padding:16px;}
+  h1{margin:0 0 16px; font-size:24px}
+  .top{display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start}
+ 
+  .card{background:var(--card); border:1px solid var(--edge); border-radius:12px; padding:14px;}
+  .controls{flex:1 1 360px}
+  .trackWrap{flex:3 1 640px}
+ 
+  .row{display:flex; align-items:center; gap:10px; margin:8px 0}
+  label{font-size:14px;color:var(--muted)}
+  input[type="text"]{background:#0f1527; color:var(--ink); border:1px solid var(--edge); border-radius:8px; padding:6px 8px; width:140px}
+  input[type="number"]{background:#0f1527; color:var(--ink); border:1px solid var(--edge); border-radius:8px; padding:6px 8px; width:80px}
+ 
+  .playersGrid{display:grid; grid-template-columns: 1fr auto auto; gap:8px 12px; align-items:center; margin-top:8px}
+  .pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#0f1527; border:1px solid var(--edge); color:var(--muted)}
+  .btn{cursor:pointer; border:1px solid var(--edge); background:#0f1527; color:var(--ink); padding:8px 10px; border-radius:10px; font-weight:600}
+  .btn[disabled]{opacity:.5; cursor:not-allowed}
+  .btn.good{border-color:#245c43; background:#0c1a16}
+  .btn.warn{border-color:#5c2424; background:#1a0c0c}
+  .btn.accent{border-color:#274f7c; background:#0d1626}
+  .btn.gold{border-color:#7c6a27; background:#1a1506; color:var(--gold)}
+ 
+  .roundMeta{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .tiny{font-size:12px; color:var(--muted)}
+ 
+  .track{margin-top:10px; border:1px solid var(--edge); border-radius:12px; padding:10px; background:#0f1527}
+  .lane{display:grid; grid-template-columns: 160px repeat(var(--cols), 1fr); gap:4px; align-items:center; margin:6px 0}
+  .lane .name{display:flex; align-items:center; gap:6px; font-weight:700}
+  .lane .name input{width:150px}
+  .cell{height:26px; border:1px dashed #233257; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#7987a8}
+  .horse{height:26px; border:2px solid var(--acc); background:#0b162b; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px}
+  .finish{background:#13253f; border-color:#355c92}
+  .lead{outline:2px solid var(--gold); box-shadow:0 0 0 2px rgba(255,211,106,.2) inset}
+  .legend{display:flex; gap:12px; align-items:center; margin-top:8px}
+  .legend .swatch{width:16px; height:16px; border:1px solid var(--edge); background:#0b162b; border-radius:4px}
+  .legend .swatch.finish{background:#13253f}
+ 
+  .perRound{margin-top:12px; border-top:1px dashed var(--edge); padding-top:12px}
+  .perRound .grid{display:grid; grid-template-columns: 1fr 80px 80px; gap:8px 12px; align-items:center}
+  .perRound h3{margin:0 0 8px; font-size:16px}
+  .note{font-size:13px; color:var(--muted)}
+  .warning{color:var(--bad); font-weight:600; display:none}
+ 
+  .footerBtns{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap}
+ 
+  /* responsive */
+  @media (max-width: 920px){
+    .lane{grid-template-columns: 120px repeat(var(--cols), 1fr);}
+    .lane .name input{width:110px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🐎 Horse Race Quiz</h1>
+ 
+  <div class="top">
+    <!-- Controls -->
+    <div class="card controls">
+      <div class="row roundMeta">
+        <div><strong>Rounds:</strong> <span id="roundNow">1</span>/<span id="roundTotal">30</span></div>
+        <div class="pill">Correct = +1 space</div>
+        <div class="pill">Fastest correct = +1 bonus</div>
+      </div>
+ 
+      <div class="row" style="margin-top:10px">
+        <label>Total rounds</label>
+        <input id="totalRounds" type="number" min="1" max="100" value="30">
+        <button class="btn accent" id="applyRounds">Apply</button>
+        <span class="tiny">You can change this before or during the race.</span>
+      </div>
+ 
+      <div class="row">
+        <label>Player names</label>
+      </div>
+      <div class="playersGrid" id="nameGrid">
+        <!-- populated by JS -->
+      </div>
+ 
+      <div class="perRound">
+        <h3>Round Input</h3>
+        <div class="note">Tick everyone who answered correctly, then choose which of the correct players was the fastest.</div>
+        <div class="grid" id="roundGrid">
+          <!-- populated by JS -->
+        </div>
+        <div class="warning" id="warn">Fastest must be one of the correct players (or leave fastest unselected if no one was correct).</div>
+ 
+        <div class="footerBtns">
+          <button class="btn good" id="applyRound">Apply Round</button>
+          <button class="btn" id="undoRound" disabled>Undo</button>
+          <button class="btn warn" id="resetRace">Reset Race</button>
+          <button class="btn gold" id="exportCsv">Export CSV</button>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- Track -->
+    <div class="card trackWrap">
+      <div class="legend">
+        <div class="swatch"></div> Horse position
+        <div class="swatch finish"></div> Finish
+        <span class="pill">Leader outlined in gold</span>
+      </div>
+      <div id="track" class="track"></div>
+    </div>
+  </div>
+</div>
+ 
+<script>
+(function(){
+  // --- Config / State ---
+  const NUM_PLAYERS = 7;
+  const INIT_NAMES = ["Player 1","Player 2","Player 3","Player 4","Player 5","Player 6","Player 7"];
+  const emoji = "🐎";
+  const state = {
+    totalRounds: 30,
+    roundNow: 1,
+    players: [],      // {name, pos}
+    history: []       // per round: [{idx, delta}, ...]
+  };
+ 
+  // --- DOM refs ---
+  const elTrack = document.getElementById('track');
+  const elRoundNow = document.getElementById('roundNow');
+  const elRoundTotal = document.getElementById('roundTotal');
+  const elTotalRoundsInput = document.getElementById('totalRounds');
+  const elApplyRounds = document.getElementById('applyRounds');
+  const elNameGrid = document.getElementById('nameGrid');
+  const elRoundGrid = document.getElementById('roundGrid');
+  const elApplyRound = document.getElementById('applyRound');
+  const elUndo = document.getElementById('undoRound');
+  const elReset = document.getElementById('resetRace');
+  const elWarn = document.getElementById('warn');
+  const elExport = document.getElementById('exportCsv');
+ 
+  // --- Init ---
+  function init(){
+    state.players = Array.from({length: NUM_PLAYERS}, (_,i)=>({name: INIT_NAMES[i], pos:0}));
+    state.totalRounds = 30;
+    state.roundNow = 1;
+    state.history = [];
+ 
+    elTotalRoundsInput.value = state.totalRounds;
+    elRoundTotal.textContent = state.totalRounds;
+    elRoundNow.textContent = state.roundNow;
+ 
+    buildNameEditor();
+    buildRoundInputs();
+    renderTrack();
+    updateUndoBtn();
+  }
+ 
+  // --- UI builders ---
+  function buildNameEditor(){
+    elNameGrid.innerHTML = '';
+    state.players.forEach((p, i)=>{
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = p.name;
+      nameInput.addEventListener('input', e=>{
+        p.name = e.target.value || `Player ${i+1}`;
+        // reflect into round inputs labels
+        const labC = document.getElementById(`labC${i}`);
+        const labF = document.getElementById(`labF${i}`);
+        if(labC) labC.textContent = p.name;
+        if(labF) labF.textContent = p.name;
+        renderTrack();
+      });
+      const posPill = document.createElement('div');
+      posPill.className = 'pill';
+      posPill.id = `posPill${i}`;
+      posPill.textContent = 'Pos: 0';
+ 
+      const rowName = document.createElement('div');
+      rowName.textContent = `#${i+1}`;
+      rowName.className = 'pill';
+ 
+      elNameGrid.appendChild(nameInput);
+      elNameGrid.appendChild(posPill);
+      elNameGrid.appendChild(rowName);
+    });
+  }
+ 
+  function buildRoundInputs(){
+    elRoundGrid.innerHTML = '';
+    // Headers
+    const hName = document.createElement('div'); hName.className='pill'; hName.textContent='Player';
+    const hCorrect = document.createElement('div'); hCorrect.className='pill'; hCorrect.textContent='Correct';
+    const hFast = document.createElement('div'); hFast.className='pill'; hFast.textContent='Fastest';
+    elRoundGrid.append(hName,hCorrect,hFast);
+ 
+    state.players.forEach((p,i)=>{
+      const name = document.createElement('div'); name.textContent = p.name;
+ 
+      const correct = document.createElement('input');
+      correct.type='checkbox'; correct.id=`c${i}`;
+ 
+      const fastest = document.createElement('input');
+      fastest.type='radio'; fastest.name='fastest'; fastest.id=`f${i}`;
+ 
+      const labC = document.createElement('label'); labC.htmlFor=`c${i}`; labC.id=`labC${i}`; labC.textContent=p.name;
+      const labF = document.createElement('label'); labF.htmlFor=`f${i}`; labF.id=`labF${i}`; labF.textContent=p.name;
+ 
+      // Arrange grid cells
+      const nameCell = document.createElement('div'); nameCell.appendChild(document.createTextNode(p.name));
+      const correctCell = document.createElement('div');
+      correctCell.appendChild(correct);
+      const fastestCell = document.createElement('div');
+      fastestCell.appendChild(fastest);
+ 
+      // Replace plain name with label for accessibility:
+      nameCell.textContent='';
+      const labName = document.createElement('label'); labName.textContent=p.name; labName.htmlFor=`c${i}`;
+      nameCell.appendChild(labName);
+ 
+      elRoundGrid.append(nameCell, correctCell, fastestCell);
+    });
+ 
+    // allow clearing fastest if no one correct: clicking fastest twice clears
+    elRoundGrid.addEventListener('click', (e)=>{
+      if(e.target && e.target.type==='radio' && e.target.name==='fastest'){
+        if(e.target.dataset.toggled==='1'){ // toggle off
+          e.target.checked = false;
+          e.target.dataset.toggled='0';
+        }else{
+          // clear tags
+          [...document.querySelectorAll('input[name="fastest"]')].forEach(r=>r.dataset.toggled='0');
+          e.target.dataset.toggled='1';
+        }
+      }
+    });
+  }
+ 
+  function renderTrack(){
+    const cols = state.totalRounds; // finish at column = totalRounds
+    elTrack.style.setProperty('--cols', String(cols));
+    elTrack.innerHTML = '';
+ 
+    const leaders = computeLeaders();
+ 
+    state.players.forEach((p,i)=>{
+      const lane = document.createElement('div');
+      lane.className='lane';
+ 
+      const nameBox = document.createElement('div');
+      nameBox.className='name';
+      nameBox.innerHTML = `<span class="pill">#${i+1}</span> <strong>${escapeHtml(p.name)}</strong>`;
+      lane.appendChild(nameBox);
+ 
+      for(let c=0;c<cols;c++){
+        const isFinish = (c === cols-1);
+        const cell = document.createElement('div');
+        // place horse at index (position), starting from 0. After 30 moves, horse reaches last cell (cols-1).
+        if (c === Math.min(p.pos, cols-1)){
+          cell.className = 'horse' + (leaders.has(i)?' lead':'');
+          cell.textContent = emoji;
+          if (c === cols-1) cell.classList.add('finish');
+        }else{
+          cell.className = 'cell' + (isFinish?' finish':'');
+          cell.textContent = isFinish ? '🏁' : '·';
+        }
+        lane.appendChild(cell);
+      }
+ 
+      elTrack.appendChild(lane);
+ 
+      const pill = document.getElementById(`posPill${i}`);
+      if (pill) pill.textContent = `Pos: ${p.pos}`;
+    });
+  }
+ 
+  function computeLeaders(){
+    let max = -Infinity;
+    state.players.forEach(p=>{ if(p.pos>max) max=p.pos; });
+    const set = new Set();
+    state.players.forEach((p,i)=>{ if(p.pos===max) set.add(i); });
+    return set;
+  }
+ 
+  // --- Helpers ---
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function getRoundSelections(){
+    const correct = [];
+    let fastest = null;
+    for(let i=0;i<NUM_PLAYERS;i++){
+      const c = document.getElementById(`c${i}`).checked;
+      const f = document.getElementById(`f${i}`).checked;
+      if (c) correct.push(i);
+      if (f) fastest = i;
+    }
+    return {correct, fastest};
+  }
+  function clearRoundSelections(){
+    for(let i=0;i<NUM_PLAYERS;i++){
+      const c = document.getElementById(`c${i}`); const f = document.getElementById(`f${i}`);
+      c.checked=false; f.checked=false; f.dataset.toggled='0';
+    }
+  }
+  function updateUndoBtn(){ elUndo.disabled = state.history.length===0; }
+ 
+  // --- Actions ---
+  elApplyRounds.addEventListener('click', ()=>{
+    let v = parseInt(elTotalRoundsInput.value,10);
+    if (!Number.isFinite(v) || v<1) v=1;
+    if (v>100) v=100;
+    state.totalRounds = v;
+    elRoundTotal.textContent = v;
+    renderTrack();
+  });
+ 
+  elApplyRound.addEventListener('click', ()=>{
+    const {correct, fastest} = getRoundSelections();
+    // Validate fastest (if chosen) must be among correct players
+    if (fastest!==null && !correct.includes(fastest)){
+      elWarn.style.display = 'block';
+      return;
+    }
+    elWarn.style.display='none';
+ 
+    // If nobody correct and no fastest, it's allowed (no one moves)
+    const deltas = [];
+    correct.forEach(idx => deltas.push({idx, delta:+1}));
+    if (fastest!==null){ deltas.push({idx: fastest, delta:+1}); }
+ 
+    applyDeltas(deltas);
+ 
+    // progress round number (cap at totalRounds for display)
+    if (state.roundNow < state.totalRounds) state.roundNow++;
+    elRoundNow.textContent = state.roundNow;
+ 
+    clearRoundSelections();
+    renderTrack();
+    updateUndoBtn();
+  });
+ 
+  function applyDeltas(deltas){
+    // Save to history for undo
+    state.history.push(deltas);
+    // Apply
+    deltas.forEach(({idx, delta})=>{
+      state.players[idx].pos += delta;
+    });
+  }
+ 
+  elUndo.addEventListener('click', ()=>{
+    const last = state.history.pop();
+    if (!last) return;
+    // Revert
+    last.forEach(({idx, delta})=>{
+      state.players[idx].pos -= delta;
+      if (state.players[idx].pos < 0) state.players[idx].pos = 0;
+    });
+    // Roll back round number (not below 1)
+    if (state.roundNow > 1) state.roundNow--;
+    elRoundNow.textContent = state.roundNow;
+ 
+    renderTrack();
+    updateUndoBtn();
+  });
+ 
+  elReset.addEventListener('click', ()=>{
+    if (!confirm('Reset the entire race? This clears positions and history.')) return;
+    state.players.forEach(p=>p.pos=0);
+    state.history = [];
+    state.roundNow = 1;
+    elRoundNow.textContent = state.roundNow;
+    clearRoundSelections();
+    renderTrack();
+    updateUndoBtn();
+  });
+ 
+  elExport.addEventListener('click', ()=>{
+    // Build CSV: header, then per-round deltas, and a final row of final positions
+    const headers = ['Round'].concat(state.players.map(p=>p.name)).join(',');
+    const rows = [headers];
+    // Reconstruct running positions round by round
+    const running = state.players.map(()=>0);
+    state.history.forEach((roundDeltas, i)=>{
+      roundDeltas.forEach(({idx, delta})=> running[idx]+=delta);
+      const row = [String(i+1)].concat(running.map(x=>String(x))).join(',');
+      rows.push(row);
+    });
+    // Final row (label "Final")
+    const finalRow = ['Final'].concat(state.players.map(p=>String(p.pos))).join(',');
+    rows.push(finalRow);
+ 
+    const csv = rows.join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download='horse_race_results.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+ 
+  // Kick off
+  init();
+})();
+</script>
+</body>
+</html>
