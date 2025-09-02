@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Horse Race Quiz — Flash-style Track + SVG Horses</title>
+<title>Horse Race Quiz — SVG Horses with Coloured Jerseys</title>
 <style>
   :root{
     --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
@@ -13,13 +13,12 @@
   html,body{height:100%}
   body{margin:0; background:var(--bg); color:var(--ink); font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
 
-  /* Layout: top half = animation, bottom half = controls */
-  .raceTop{height:50vh; min-height:320px; position:relative; border-bottom:1px solid var(--edge)}
+  .raceTop{height:50vh; min-height:360px; position:relative; border-bottom:1px solid var(--edge)}
   canvas#raceCanvas{position:absolute; inset:0; width:100%; height:100%}
 
   .hud{
     position:absolute; left:12px; top:10px; display:flex; gap:8px; flex-wrap:wrap;
-    background:rgba(15,21,39,.6); border:1px solid var(--edge); backdrop-filter:blur(6px);
+    background:rgba(15,21,39,.5); border:1px solid var(--edge); backdrop-filter:blur(6px);
     padding:8px 10px; border-radius:10px; font-size:12px
   }
   .hud .pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#0f1527; border:1px solid var(--edge); color:var(--muted)}
@@ -59,11 +58,9 @@
 </head>
 <body>
 
-<!-- TOP: Flash-like animated race view -->
 <div class="raceTop">
   <canvas id="raceCanvas"></canvas>
 
-  <!-- Minimal HUD over canvas -->
   <div class="hud">
     <span class="title">🐎 Horse Race</span>
     <span id="roundHud" class="pill">Round 1/30</span>
@@ -79,7 +76,6 @@
   </div>
 </div>
 
-<!-- BOTTOM: controls/scoring -->
 <div class="bottom">
   <div class="card">
     <div class="row">
@@ -111,15 +107,18 @@
 
 <script>
 (function(){
-  // ------- State -------
+  // ------- Config & State -------
   const NUM_PLAYERS = 7;
   const INIT_NAMES = ["Player 1","Player 2","Player 3","Player 4","Player 5","Player 6","Player 7"];
+
+  // Jersey/saddlecloth colours (edit freely)
+  const SILKS = ["#e74c3c","#3498db","#2ecc71","#f1c40f","#9b59b6","#e67e22","#1abc9c"];
+
   const state = {
     totalRounds: 30,
     roundNow: 1,
     players: [],          // {name, pos, animX}
-    history: [],          // per round deltas
-    finishers: []
+    history: []
   };
 
   // ------- DOM (bottom) -------
@@ -132,7 +131,6 @@
   const elUndo = document.getElementById('undoRound');
   const elReset = document.getElementById('resetRace');
   const elExport = document.getElementById('exportCsv');
-  const elToast = document.getElementById('toast');
   const elRoundHud = document.getElementById('roundHud');
 
   // ------- Timer (top HUD) -------
@@ -142,61 +140,72 @@
   const elClockTop = document.getElementById('clockTop');
   let timerInt=null, remaining=0;
 
-  // ------- Canvas (top) -------
+  // ------- Canvas -------
   const canvas = document.getElementById('raceCanvas');
   const ctx = canvas.getContext('2d');
-  let W=0, H=0;
-  let t=0;
-  let baseScroll = 140;      // px/sec
-  let scrollBoost = 0;       // extra speed for drama after Apply
-  let trackOffset = 0;       // horizontal loop offset
+  let W=0, H=0, t=0;
+  let baseScroll = 140, scrollBoost = 0, trackOffset = 0;
 
-  const LANES = NUM_PLAYERS;
-  const leftPad = 100;
-  const rightPad = 80;
+  const leftPad = 100, rightPad = 80;
   const finishLineX = ()=> W - rightPad;
   const startLineX  = ()=> leftPad;
 
-  // --- SVG horse frames (3-frame gallop) ---
-  const HORSE_W = 44, HORSE_H = 28; // draw size in px
-  const horseFrames = []; // array of Image objects (frame 0..2)
+  // --- SVG horse frames (3-frame gallop), bigger, per-player colour + number ---
+  const HORSE_W = 72, HORSE_H = 46;
+  const horseFrames = Array.from({length:NUM_PLAYERS}, ()=>[]); // [player][frame] -> Image
 
-  function svgDataUrl(frame, color="#e9f0ff"){
-    // Simple stylized horse: body, head/neck, tail, 4 legs with different poses
+  function svgDataUrl(frame, silk, number, body="#f7f7fb", stroke="#0b162b"){
+    // Leg poses per frame
     const legPos = [
-      // frame 0
-      [[6,22,  12,26],[18,22,  12,26],[28,22,  34,26],[38,22,  34,26]],
-      // frame 1
-      [[6,22,  10,26],[18,22,  24,26],[28,22,  24,26],[38,22,  42,26]],
-      // frame 2
-      [[6,22,  12,26],[18,22,  14,26],[28,22,  36,26],[38,22,  34,26]],
-    ][frame % 3];
+      [[10,36,18,44],[24,36,18,44],[36,36,46,44],[52,36,46,44]],
+      [[10,36,16,44],[24,36,32,44],[36,36,32,44],[52,36,60,44]],
+      [[10,36,18,44],[24,36,20,44],[36,36,48,44],[52,36,46,44]],
+    ][frame%3];
 
+    // Saddlecloth rect and silk cap coloured + jersey number on cloth
+    const textFill = "#ffffff";
     const svg =
-`<svg xmlns="http://www.w3.org/2000/svg" width="${HORSE_W}" height="${HORSE_H}" viewBox="0 0 44 28">
-  <g fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+`<svg xmlns="http://www.w3.org/2000/svg" width="${HORSE_W}" height="${HORSE_H}" viewBox="0 0 72 46">
+  <defs>
+    <style>
+      @font-face{font-family:ui;src:local("Segoe UI"),local("Roboto"),local("Arial")}
+    </style>
+  </defs>
+  <g fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <!-- body -->
-    <path d="M9 16 C 16 10, 28 10, 35 16 C 30 20, 14 20, 9 16 Z" fill="${color}"/>
+    <path d="M12 26 C 26 16, 46 16, 58 26 C 50 32, 20 32, 12 26 Z" fill="${body}" />
     <!-- neck + head -->
-    <path d="M28 14 L 36 10 L 40 12 L 37 14 L 32 16 Z" fill="${color}"/>
-    <circle cx="40" cy="12" r="1.2" fill="#0b162b"/>
+    <path d="M44 24 L 58 18 L 66 21 L 61 24 L 52 26 Z" fill="${body}" />
+    <circle cx="66" cy="21" r="1.6" fill="${stroke}"/>
     <!-- tail -->
-    <path d="M8 16 Q 4 17, 4 20" />
+    <path d="M10 26 Q 4 28, 6 34" />
     <!-- legs -->
     <path d="M${legPos[0][0]} ${legPos[0][1]} L ${legPos[0][2]} ${legPos[0][3]}" />
     <path d="M${legPos[1][0]} ${legPos[1][1]} L ${legPos[1][2]} ${legPos[1][3]}" />
     <path d="M${legPos[2][0]} ${legPos[2][1]} L ${legPos[2][2]} ${legPos[2][3]}" />
     <path d="M${legPos[3][0]} ${legPos[3][1]} L ${legPos[3][2]} ${legPos[3][3]}" />
   </g>
+
+  <!-- SILKS: cap + saddlecloth -->
+  <g>
+    <!-- cap -->
+    <path d="M56 17 q 5 -5, 9 0 q -5 2, -9 0 Z" fill="${silk}" stroke="${stroke}" stroke-width="1.3"/>
+    <!-- saddlecloth -->
+    <rect x="26" y="20" rx="2" ry="2" width="18" height="12" fill="${silk}" stroke="${stroke}" stroke-width="1.2"/>
+    <text x="35" y="29" font-size="10" text-anchor="middle" fill="${textFill}" font-family="ui, system-ui, sans-serif">${number}</text>
+  </g>
 </svg>`;
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
   }
 
   function preloadHorses(){
-    for(let f=0; f<3; f++){
-      const img = new Image();
-      img.src = svgDataUrl(f);
-      horseFrames.push(img);
+    for(let p=0; p<NUM_PLAYERS; p++){
+      const silk = SILKS[p % SILKS.length];
+      for(let f=0; f<3; f++){
+        const img = new Image();
+        img.src = svgDataUrl(f, silk, p+1);
+        horseFrames[p][f] = img;
+      }
     }
   }
 
@@ -211,7 +220,6 @@
 
   // ------- Init -------
   function init(){
-    // Names from URL (optional)
     const url = new URL(location.href);
     for (let i=1;i<=NUM_PLAYERS;i++){
       const v = url.searchParams.get('p'+i);
@@ -241,13 +249,9 @@
         p.name = e.target.value || `Player ${i+1}`;
       });
       const posPill = document.createElement('div');
-      posPill.className = 'tiny';
-      posPill.id = `posPill${i}`;
-      posPill.textContent = 'Moves: 0';
+      posPill.className = 'tiny'; posPill.id = `posPill${i}`; posPill.textContent = 'Moves: 0';
 
-      const seat = document.createElement('div');
-      seat.className='tiny';
-      seat.textContent = `Seat #${i+1}`;
+      const seat = document.createElement('div'); seat.className='tiny'; seat.textContent = `Seat #${i+1}`;
       elNameGrid.append(nameInput,posPill,seat);
     });
   }
@@ -265,7 +269,6 @@
       elRoundGrid.append(nameCell,correctCell,fastestCell);
     });
 
-    // radio toggle off on second click
     elRoundGrid.addEventListener('click', (e)=>{
       if(e.target && e.target.type==='radio'){
         e.target.dataset.toggled = e.target.dataset.toggled==='1' ? '0' : '1';
@@ -292,21 +295,15 @@
     correct.forEach(idx => deltas.push({idx, delta:+1}));
     if (fastest!==null){ deltas.push({idx: fastest, delta:+1}); }
 
-    // Save for undo
     state.history.push(deltas);
-
-    // Apply logical positions
     deltas.forEach(({idx, delta})=> state.players[idx].pos += delta);
 
-    // Visual drama: track speed boost & horse surge flags
-    scrollBoost = 250; // px/sec extra, decays
-    surgeFor(deltas.map(d=>d.idx)); // mark who moved this round
+    scrollBoost = 250;
+    surgeFor(deltas.map(d=>d.idx));
 
-    // Round counter
     if (state.roundNow < state.totalRounds) state.roundNow++;
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
 
-    // Clear inputs
     clearRoundSelections();
     updateSidebarPills();
     updateUndoBtn();
@@ -320,8 +317,7 @@
     });
     if (state.roundNow > 1) state.roundNow--;
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
-    updateSidebarPills();
-    updateUndoBtn();
+    updateSidebarPills(); updateUndoBtn();
   });
 
   elReset.addEventListener('click', ()=>{
@@ -331,8 +327,7 @@
     state.roundNow = 1;
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
     clearRoundSelections();
-    updateSidebarPills();
-    updateUndoBtn();
+    updateSidebarPills(); updateUndoBtn();
   });
 
   elExport.addEventListener('click', ()=>{
@@ -376,7 +371,7 @@
     }
   }
 
-  // ------- Timer (top HUD) -------
+  // ------- Timer -------
   elStartTop.addEventListener('click', startTimer);
   elStopTop.addEventListener('click', stopTimer);
   document.addEventListener('keydown', (e)=>{
@@ -386,7 +381,6 @@
     if (e.key.toLowerCase()==='r'){ e.preventDefault(); elReset.click(); return; }
     if (e.key.toLowerCase()==='t'){ e.preventDefault(); if(timerInt) stopTimer(); else startTimer(); return; }
 
-    // number keys: fastest vs correct
     const map = { 'Digit1':0,'Digit2':1,'Digit3':2,'Digit4':3,'Digit5':4,'Digit6':5,'Digit7':6,
                   'Numpad1':0,'Numpad2':1,'Numpad3':2,'Numpad4':3,'Numpad5':4,'Numpad6':5,'Numpad7':6 };
     const idx = map[e.code] ?? null;
@@ -429,66 +423,56 @@
     indices.forEach(i=>surge.add(i));
     setTimeout(()=>{ indices.forEach(i=>surge.delete(i)); }, 600);
   }
-
   function approach(current, target, dt, speed){
     const diff = target - current;
     const step = Math.sign(diff) * Math.min(Math.abs(diff), speed*dt);
     return current + step;
   }
 
-  // ------- Main loop -------
+  // ------- Main loop & drawing -------
   let lastFrame = 0;
   function loop(now){
     const dt = Math.max(0.001, Math.min(0.05, (now - lastFrame)/1000));
-    lastFrame = now;
-    t += dt;
+    lastFrame = now; t += dt;
 
-    // Scroll background
     const scrollPx = (baseScroll + scrollBoost) * dt;
     trackOffset = (trackOffset + scrollPx) % 2000;
     scrollBoost = Math.max(0, scrollBoost - 400*dt);
 
-    // Update horses’ animX toward logical targetX
     const startX = startLineX(), finishX = finishLineX();
     const finishIdx = Math.max(1, state.totalRounds - 1);
 
     state.players.forEach((p,i)=>{
       const percent = clamp(p.pos / finishIdx, 0, 1);
       const target = startX + percent * (finishX - startX);
-      const extra = surge.has(i) ? 480 : 280; // px/sec
+      const extra = surge.has(i) ? 520 : 320;
       p.animX = approach(p.animX, target, dt, extra);
     });
 
     draw(dt);
-
     requestAnimationFrame(loop);
   }
 
-  // ------- Drawing -------
   function draw(dt){
     ctx.clearRect(0,0,W,H);
     drawSky();
-    drawStands((trackOffset*0.2)%W);
-    drawFence((trackOffset*0.5)%W);
-    drawTrackSurface((trackOffset)%W);
+    drawStands((trackOffset*0.18)%W);
+    drawFence((trackOffset*0.45)%W);
+    drawGrass((trackOffset)%W);
     drawFinish();
     drawHorses();
   }
 
   function drawSky(){
     const g = ctx.createLinearGradient(0,0,0,H);
-    g.addColorStop(0,'#0e1530'); g.addColorStop(1,'#0a1022');
+    g.addColorStop(0,'#0f1836'); g.addColorStop(1,'#0b1329');
     ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
   }
-
   function drawStands(off){
     const y = 60;
-    ctx.save();
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = '#0a1a33';
+    ctx.save(); ctx.globalAlpha = 0.35; ctx.fillStyle = '#0b1e35';
     for(let x=-W; x<W*2; x+=160){
       ctx.fillRect(Math.floor(x - off), y, 120, 30);
-      // crowd dots
       for(let i=0;i<60;i++){
         const cx = Math.floor(x - off) + (i*2);
         const cy = y + 30 + Math.sin((i+ t*3)*0.3)*1.2;
@@ -497,113 +481,85 @@
     }
     ctx.restore();
   }
-
   function drawFence(off){
-    const y = 110;
-    ctx.strokeStyle = '#203356';
-    ctx.lineWidth = 3;
+    const y = 120;
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    ctx.fillStyle = '#1b2a49';
+    ctx.fillStyle = '#e8e8e8';
     for(let x=-W; x<W*2; x+=60){
       const px = Math.floor(x - off*1.1);
       ctx.fillRect(px, y-14, 4, 14);
     }
   }
-
-  function drawTrackSurface(off){
-    const top = 140, bottom = H-50;
-    const laneH = (bottom - top) / LANES;
-    for(let l=0;l<LANES;l++){
+  function drawGrass(off){
+    const top = 150, bottom = H-40;
+    const laneH = (bottom - top) / NUM_PLAYERS;
+    for(let l=0;l<NUM_PLAYERS;l++){
       const y0 = top + l*laneH;
-      ctx.fillStyle = l%2 ? '#16254a' : '#122042';
+      ctx.fillStyle = l%2 ? '#2c7a38' : '#2a6f33';
       ctx.fillRect(0, y0, W, laneH-4);
-
-      ctx.strokeStyle = '#253a6b';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([16,12]);
-      ctx.lineDashOffset = -off*0.6;
-      ctx.beginPath();
-      ctx.moveTo(0, y0 + (laneH*0.5));
-      ctx.lineTo(W, y0 + (laneH*0.5));
-      ctx.stroke();
+      ctx.strokeStyle = '#7ed38d'; ctx.lineWidth = 1.5;
+      ctx.setLineDash([22,14]); ctx.lineDashOffset = -off*0.5;
+      ctx.beginPath(); ctx.moveTo(0, y0 + (laneH*0.5)); ctx.lineTo(W, y0 + (laneH*0.5)); ctx.stroke();
     }
     ctx.setLineDash([]);
   }
-
   function drawFinish(){
     const x = finishLineX();
-    const top = 140, bottom = H-50;
-    ctx.fillStyle = '#2a467f';
-    ctx.fillRect(x-2, top-18, 4, (bottom-top)+18);
-    for(let i=0;i<10;i++){
-      ctx.fillStyle = i%2 ? '#e9f0ff' : '#21345d';
-      ctx.fillRect(x-26 + i*5, top-26, 5, 20);
+    const top = 150, bottom = H-40;
+    for(let i=0;i<12;i++){
+      ctx.fillStyle = i%2 ? '#ffffff' : '#cc2a2a';
+      ctx.fillRect(x-3, top-18 + i*6, 6, 6);
     }
-    ctx.fillStyle = '#9fb2da';
+    for(let i=0;i<10;i++){
+      ctx.fillStyle = i%2 ? '#ffffff' : '#111';
+      ctx.fillRect(x-28 + i*5, top-28, 5, 20);
+    }
+    ctx.fillStyle = '#f0f6ff';
     ctx.font = '12px system-ui, sans-serif';
-    ctx.fillText('FINISH', x-24, top-30);
+    ctx.fillText('FINISH', x-24, top-32);
   }
-
   function drawHorses(){
-    const top = 140, bottom = H-50;
-    const laneH = (bottom - top) / LANES;
+    const top = 150, bottom = H-40;
+    const laneH = (bottom - top) / NUM_PLAYERS;
     const maxPos = Math.max(...state.players.map(p=>p.pos));
     const leaders = new Set(state.players.map((p,i)=> p.pos===maxPos ? i : null).filter(i=>i!==null));
 
-    const frame = Math.floor(t*10) % 3; // gallop speed
+    const frame = Math.floor(t*10) % 3;
 
     state.players.forEach((p,i)=>{
       const cy = top + i*laneH + laneH*0.5;
       const x = p.animX;
 
-      // leader glow
       if (leaders.has(i)){
         ctx.save();
-        ctx.shadowColor = 'rgba(255,211,106,.6)';
-        ctx.shadowBlur = 12;
-        ctx.fillStyle = 'rgba(255,211,106,.15)';
-        ctx.beginPath(); ctx.arc(x, cy, 18, 0, Math.PI*2); ctx.fill();
+        ctx.shadowColor = 'rgba(255,211,106,.7)'; ctx.shadowBlur = 14;
+        ctx.fillStyle = 'rgba(255,211,106,.18)';
+        ctx.beginPath(); ctx.arc(x, cy, 22, 0, Math.PI*2); ctx.fill();
         ctx.restore();
       }
-
-      // surge ring
       if (surge.has(i)){
-        ctx.save();
-        ctx.strokeStyle = '#6ac2ff';
-        ctx.globalAlpha = 0.8;
-        ctx.beginPath();
-        ctx.arc(x, cy, 16, 0, Math.PI*2);
-        ctx.stroke();
-        ctx.restore();
+        ctx.save(); ctx.strokeStyle = '#6ac2ff'; ctx.globalAlpha = 0.9;
+        ctx.beginPath(); ctx.arc(x, cy, 20, 0, Math.PI*2); ctx.stroke(); ctx.restore();
       }
 
-      // slight bob/tilt
-      const bob = Math.sin((t*6)+(i*0.7)) * 2;
-      const tilt = Math.sin((t*2)+(i*0.9)) * 0.05; // radians
+      const bob = Math.sin((t*6)+(i*0.7)) * 2.4;
+      const tilt = Math.sin((t*2)+(i*0.9)) * 0.05;
 
-      // draw SVG horse frame
-      const img = horseFrames[frame];
+      const img = horseFrames[i][frame];
       if (img && img.complete){
-        ctx.save();
-        ctx.translate(x, cy + bob);
-        ctx.rotate(tilt);
+        ctx.save(); ctx.translate(x, cy + bob); ctx.rotate(tilt);
         ctx.drawImage(img, -HORSE_W/2, -HORSE_H/2, HORSE_W, HORSE_H);
         ctx.restore();
       }
 
       // name plate
-      ctx.fillStyle = '#0b162b';
-      ctx.strokeStyle = '#22315c';
-      ctx.lineWidth = 1.5;
-      const label = state.players[i].name;
-      const w = ctx.measureText(label).width + 12;
-      ctx.fillRect(x - w/2, cy + 16, w, 16);
-      ctx.strokeRect(x - w/2, cy + 16, w, 16);
-      ctx.fillStyle = '#9fb2da';
-      ctx.font = '12px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, x, cy + 24);
+      ctx.fillStyle = 'rgba(11,22,43,.85)'; ctx.strokeStyle = '#22315c'; ctx.lineWidth=1.5;
+      const label = state.players[i].name; ctx.font = '13px system-ui, sans-serif';
+      const w = ctx.measureText(label).width + 14;
+      ctx.fillRect(x - w/2, cy + 28, w, 18); ctx.strokeRect(x - w/2, cy + 28, w, 18);
+      ctx.fillStyle = '#cfe0ff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(label, x, cy + 37);
     });
   }
 
@@ -617,7 +573,7 @@
     URL.revokeObjectURL(url);
   }
 
-  // Start!
+  // Boot
   init();
 })();
 </script>
