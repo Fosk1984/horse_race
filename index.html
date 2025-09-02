@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Horse Race Quiz — Classic Emoji Horses (Green Track)</title>
+<title>Horse Race Quiz — Emoji Horses, Wider Lanes</title>
 <style>
   :root{
     --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
@@ -13,7 +13,6 @@
   html,body{height:100%}
   body{margin:0; background:var(--bg); color:var(--ink); font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
 
-  /* Layout */
   .raceTop{height:50vh; min-height:360px; position:relative; border-bottom:1px solid var(--edge)}
   canvas#raceCanvas{position:absolute; inset:0; width:100%; height:100%}
 
@@ -106,9 +105,14 @@
   const NUM_PLAYERS = 7;
   const INIT_NAMES  = ["Player 1","Player 2","Player 3","Player 4","Player 5","Player 6","Player 7"];
 
-  // Emoji horse settings
+  // Emoji horse settings (mirrored to face right)
   const HORSE_EMOJI = '🐎';
-  const EMOJI_SIZE  = 64; // tweak for bigger/smaller horses
+  const EMOJI_SIZE  = 44;      // change for bigger/smaller horses
+
+  // Lane width multiplier (Option B)
+  const LANE_SCALE = 1.4;      // 1.0 = original; 1.4 = 40% wider
+  const TRACK_TOP_BASE = 150;  // vertical start of the course
+  const TRACK_PAD = 200;       // baseline space reserved for sky/fence/bottom margin
 
   // ---------- State ----------
   const state = {
@@ -304,6 +308,14 @@
   }
   window.addEventListener('resize', resize);
 
+  // --- Lane geometry helpers (Option B math) ---
+  function laneGeometry(){
+    const top = TRACK_TOP_BASE;
+    let laneH = ((H - TRACK_PAD) / NUM_PLAYERS) * LANE_SCALE; // widened
+    const bot = top + laneH * NUM_PLAYERS;
+    return { top, laneH, bot };
+  }
+
   function drawBackground(off){
     // sky
     const g = ctx.createLinearGradient(0,0,0,H);
@@ -321,9 +333,9 @@
     ctx.fillStyle='#e8e8e8';
     for(let x=-W; x<W*2; x+=60){ const px=Math.floor(x-off*.45); ctx.fillRect(px,fy-14,4,14); }
 
-    // green course lanes
-    const top=150, bot=H-40, lanes=NUM_PLAYERS, laneH=(bot-top)/lanes;
-    for(let l=0;l<lanes;l++){
+    // lanes (green)
+    const { top, laneH, bot } = laneGeometry();
+    for(let l=0;l<NUM_PLAYERS;l++){
       const y0=top+l*laneH;
       ctx.fillStyle = l%2 ? '#2c7a38' : '#2a6f33';
       ctx.fillRect(0,y0,W,laneH-4);
@@ -333,14 +345,14 @@
     ctx.setLineDash([]);
 
     // finish
-    const fx = W - rightPad, ttop=150;
+    const fx = W - rightPad, ttop = top, bbot = bot;
     for(let i=0;i<12;i++){ ctx.fillStyle=i%2?'#fff':'#cc2a2a'; ctx.fillRect(fx-3, ttop-18+i*6, 6,6); }
     for(let i=0;i<10;i++){ ctx.fillStyle=i%2?'#fff':'#111'; ctx.fillRect(fx-28+i*5, ttop-28, 5,20); }
     ctx.fillStyle='#f0f6ff'; ctx.font='12px system-ui, sans-serif'; ctx.fillText('FINISH', fx-24, ttop-32);
   }
 
   function drawHorses(){
-    const top=150, bot=H-40, laneH=(bot-top)/NUM_PLAYERS;
+    const { top, laneH } = laneGeometry();
     const maxPos = Math.max(...state.players.map(p=>p.pos));
     const leaders = new Set(state.players.map((p,i)=> p.pos===maxPos ? i : null).filter(x=>x!==null));
 
@@ -350,12 +362,12 @@
       const cy = top + i*laneH + laneH*.5;
       const x  = p.animX;
 
-      // trailing name plate (under the horse)
+      // trailing name plate
       const label = p.name;
       ctx.font='13px system-ui, sans-serif';
       const textW = Math.ceil(ctx.measureText(label).width);
       const padX=7, plateH=18, gap=10;
-      const horseHalf = EMOJI_SIZE*0.6/2; // rough half-width in px
+      const horseHalf = EMOJI_SIZE*0.6/2; // rough half-width
       const rightEdge = x - horseHalf - gap;
       const plateW = textW + padX*2;
       const plateX = Math.max(6, rightEdge - plateW);
@@ -375,21 +387,19 @@
         ctx.save(); ctx.strokeStyle='#6ac2ff'; ctx.globalAlpha=.9; ctx.beginPath(); ctx.arc(x,cy,22,0,Math.PI*2); ctx.stroke(); ctx.restore();
       }
 
-    // bob/tilt + emoji horse on top (mirrored to face right)
-const bob = Math.sin((t*6)+(i*.7))*2.4;
-const tilt= Math.sin((t*1.8)+(i*.9))*0.05;
+      // bob/tilt + emoji horse (mirrored to face right)
+      const bob = Math.sin((t*6)+(i*.7))*2.4;
+      const tilt= Math.sin((t*1.8)+(i*.9))*0.05;
 
-ctx.save();
-ctx.translate(x, cy + bob);
-// Flip horizontally so the emoji faces right (movement direction)
-ctx.scale(-1, 1);
-ctx.rotate(tilt);
-// After scale(-1,1), draw at negative x to stay centered at origin
-ctx.font = `${EMOJI_SIZE}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
-ctx.textAlign='center';
-ctx.textBaseline='middle';
-ctx.fillText(HORSE_EMOJI, 0, 0);
-ctx.restore();
+      ctx.save();
+      ctx.translate(x, cy + bob);
+      ctx.scale(-1, 1);       // flip horizontally so the horse faces right
+      ctx.rotate(tilt);
+      ctx.font = `${EMOJI_SIZE}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText(HORSE_EMOJI, 0, 0);
+      ctx.restore();
     });
   }
 
@@ -441,8 +451,8 @@ ctx.restore();
   }
   window.addEventListener('resize', resize);
 
-  // start timer display
-  function tickClock(countdown){ /* overridden above; keeping stub */ }
+  // timer clock tick display (controlled in start/stop)
+  function tickClock(countdown){ /* handled above; stub for compatibility */ }
 
   init();
 })();
