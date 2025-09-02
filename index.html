@@ -507,14 +507,6 @@
       ctx.fillRect(fx - 28 + i * 5, finishTopY - 16, 5, 20);
     }
 
-    // label tucked up near the fence
-    ctx.fillStyle = '#f0f6ff';
-    ctx.font = '12px system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText('FINISH', Math.min(W - 6, fx - 6), Math.max(12, fy - 6));
-    ctx.textAlign = 'start';
-  }
-
   function drawHorses(){
     const { top } = fieldGeometry();
     const maxPos = Math.max(...state.players.map(p=>p.pos));
