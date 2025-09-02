@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Horse Race Quiz — Compact Controls</title>
+<title>Horse Race Quiz — One Big Field + Crowd Avoidance</title>
 <style>
   :root{
     --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
@@ -111,20 +111,26 @@
   const NUM_PLAYERS = 7;
   const INIT_NAMES  = ["Player 1","Player 2","Player 3","Player 4","Player 5","Player 6","Player 7"];
 
-  // Emoji horse settings (mirrored to face right)
+  // Emoji horses (mirrored to face right)
   const HORSE_EMOJI = '🐎';
   const EMOJI_SIZE  = 44;
 
-  // Lane width multiplier (Option B)
-  const LANE_SCALE = 1.4;      // 1.0 = original; increase to widen lanes
-  const TRACK_TOP_BASE = 150;  // vertical start of the course
-  const TRACK_PAD = 200;       // baseline space reserved for sky/fence/bottom margin
+  // Single-field geometry
+  const FIELD_TOP = 150;            // fence sits above this
+  const FIELD_BOTTOM_MARGIN = 40;   // padding above bottom
+  const TRACK_PAD = 200;            // sky/fence/bottom margin headroom (kept for look)
+
+  // Avoidance tuning
+  const X_NEAR = 110;   // if horses are within this X distance, they can repel
+  const Y_SEP  = 28;    // desired minimum vertical separation
+  const SPRING = 0.04;  // pull back toward each horse's base lane (per frame)
+  const ITERATIONS = 2; // more iterations = firmer separation per frame
 
   // ---------- State ----------
   const state = {
     totalRounds: 30,
     roundNow: 1,
-    players: [],
+    players: [],        // {name, pos, animX, y, baseY}
     history: []
   };
 
@@ -156,6 +162,9 @@
   const leftPad = 110, rightPad=90;
   const finishLineX = ()=> W - rightPad;
   const startLineX  = ()=> leftPad;
+
+  // Surge ring tracking
+  const surged = new Set();
 
   // ---------- UI build ----------
   function buildNameEditor(){
@@ -285,7 +294,7 @@
   }
   function resetRace(){
     if(!confirm('Reset the race?')) return;
-    state.players.forEach(p=>{ p.pos=0; p.animX=startLineX(); });
+    state.players.forEach(p=>{ p.pos=0; p.animX=startLineX(); p.y=p.baseY; });
     state.history=[]; state.roundNow=1;
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
     clearRoundSelections(); updateSidebar(); updateUndo();
@@ -302,7 +311,6 @@
   function updateUndo(){ elUndo.disabled = state.history.length===0; }
 
   // ---------- Canvas loop & drawing ----------
-
   function approach(cur,tgt,dt,speed){ const d=tgt-cur; const step=Math.sign(d)*Math.min(Math.abs(d), speed*dt); return cur+step; }
 
   function resize(){
@@ -311,15 +319,64 @@
     canvas.height= Math.floor(r.height* devicePixelRatio);
     ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
     W=r.width; H=r.height;
+    layoutFieldY(); // recompute Y layout when size changes
   }
   window.addEventListener('resize', resize);
 
-  // Lane geometry (Option B multiplier)
-  function laneGeometry(){
-    const top = TRACK_TOP_BASE;
-    let laneH = ((H - TRACK_PAD) / NUM_PLAYERS) * LANE_SCALE; // widen lanes
-    const bot = top + laneH * NUM_PLAYERS;
-    return { top, laneH, bot };
+  // Field geometry (single big field)
+  function fieldGeometry(){
+    const top = FIELD_TOP;
+    const bot = H - FIELD_BOTTOM_MARGIN;
+    const height = Math.max(60, bot - top);
+    return { top, bot, height };
+  }
+
+  // Assign each horse a natural Y position on the field (with slight jitter)
+  function layoutFieldY(){
+    const { top, height } = fieldGeometry();
+    for(let i=0;i<state.players.length;i++){
+      const base = top + ((i + 0.5) / NUM_PLAYERS) * height;
+      const spread = height / NUM_PLAYERS * 0.35; // ±35% of slot
+      const jitter = (Math.random()*2 - 1) * spread;
+      const baseY = clamp(base + jitter, top + 24, top + height - 24);
+      const p = state.players[i];
+      p.baseY = baseY;
+      if (p.y == null) p.y = baseY;
+    }
+  }
+
+  // Crowd avoidance: gently push apart horses that are close in X and too close in Y
+  function resolveCrowding(){
+    const { top, bot } = fieldGeometry();
+    const minY = top + 24, maxY = bot - 24;
+
+    // Soft spring back toward base lines to keep things stable
+    state.players.forEach(p=>{
+      p.y += (p.baseY - p.y) * SPRING;
+    });
+
+    // A few passes for firmer separation when packed
+    for(let it=0; it<ITERATIONS; it++){
+      for(let i=0;i<state.players.length;i++){
+        for(let j=i+1;j<state.players.length;j++){
+          const a = state.players[i], b = state.players[j];
+          const dx = Math.abs(a.animX - b.animX);
+          if (dx > X_NEAR) continue; // only repel if horizontally close
+          const dy = b.y - a.y;
+          const ady = Math.abs(dy);
+          if (ady < Y_SEP){
+            const overlap = (Y_SEP - ady) * (1 - dx / X_NEAR); // more push if also close in X
+            const dir = dy >= 0 ? 1 : -1; // which way to push b relative to a
+            a.y -= overlap * 0.5 * dir;
+            b.y += overlap * 0.5 * dir;
+          }
+        }
+      }
+      // Keep within field bounds
+      state.players.forEach(p=>{
+        p.y = clamp(p.y, minY, maxY);
+      });
+    }
   }
 
   function drawBackground(off){
@@ -339,34 +396,42 @@
     ctx.fillStyle='#e8e8e8';
     for(let x=-W; x<W*2; x+=60){ const px=Math.floor(x-off*.45); ctx.fillRect(px,fy-14,4,14); }
 
-    // lanes (green)
-    const { top, laneH } = laneGeometry();
-    for(let l=0;l<NUM_PLAYERS;l++){
-      const y0=top+l*laneH;
-      ctx.fillStyle = l%2 ? '#2c7a38' : '#2a6f33';
-      ctx.fillRect(0,y0,W,laneH-4);
-      ctx.strokeStyle='#7ed38d'; ctx.lineWidth=1.5; ctx.setLineDash([22,14]); ctx.lineDashOffset=-off*.5;
-      ctx.beginPath(); ctx.moveTo(0, y0+laneH*.5); ctx.lineTo(W, y0+laneH*.5); ctx.stroke();
-    }
-    ctx.setLineDash([]);
+    // one big green field
+    const { top, bot, height } = fieldGeometry();
+    ctx.fillStyle = '#2b7436';
+    ctx.fillRect(0, top, W, height);
 
-    // finish
-    const fx = W - rightPad, ttop = top;
-    for(let i=0;i<12;i++){ ctx.fillStyle=i%2?'#fff':'#cc2a2a'; ctx.fillRect(fx-3, ttop-18+i*6, 6,6); }
-    for(let i=0;i<10;i++){ ctx.fillStyle=i%2?'#fff':'#111'; ctx.fillRect(fx-28+i*5, ttop-28, 5,20); }
-    ctx.fillStyle='#f0f6ff'; ctx.font='12px system-ui, sans-serif'; ctx.fillText('FINISH', fx-24, ttop-32);
+    // moving mow stripes (subtle)
+    const stripeW = 120;
+    for(let x=-W; x<W*2; x+=stripeW){
+      const sx = Math.floor(x - (off*0.35)%stripeW);
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.fillRect(sx, top, stripeW/2, height);
+    }
+
+    // finish marker
+    const fx = W - rightPad;
+    for(let i=0;i<12;i++){
+      ctx.fillStyle = i%2 ? '#fff' : '#cc2a2a';
+      ctx.fillRect(fx-3, top-18 + i*6, 6,6);
+    }
+    for(let i=0;i<10;i++){
+      ctx.fillStyle = i%2 ? '#fff' : '#111';
+      ctx.fillRect(fx-28 + i*5, top-28, 5,20);
+    }
+    ctx.fillStyle = '#f0f6ff'; ctx.font='12px system-ui, sans-serif'; ctx.fillText('FINISH', fx-24, top-32);
   }
 
   function drawHorses(){
-    const { top, laneH } = laneGeometry();
+    const { top } = fieldGeometry();
     const maxPos = Math.max(...state.players.map(p=>p.pos));
     const leaders = new Set(state.players.map((p,i)=> p.pos===maxPos ? i : null).filter(x=>x!==null));
 
     ctx.textAlign='center'; ctx.textBaseline='middle';
 
     state.players.forEach((p,i)=>{
-      const cy = top + i*laneH + laneH*.5;
-      const x  = p.animX;
+      const cy = p.y ?? (top + 60 + i*40); // fallback if not laid out yet
+      const x  = p.animX ?? startLineX();
 
       // trailing name plate
       const label = p.name;
@@ -418,7 +483,7 @@
     trackOffset = (trackOffset + scrollPx) % 2000;
     scrollBoost = Math.max(0, scrollBoost - 380*dt);
 
-    // target X by logical pos
+    // logical X target by position
     const startX=startLineX(), finishX=finishLineX();
     const finishIdx = Math.max(1, state.totalRounds - 1);
     state.players.forEach((p,i)=>{
@@ -427,6 +492,9 @@
       const speed = surged.has(i)? 520 : 320;
       p.animX = approach(p.animX, target, dt, speed);
     });
+
+    // crowd avoidance on Y
+    resolveCrowding();
 
     // draw
     ctx.clearRect(0,0,W,H);
@@ -449,19 +517,22 @@
   function init(){
     const url = new URL(location.href);
     for(let i=1;i<=NUM_PLAYERS;i++){ const v=url.searchParams.get('p'+i); if(v) INIT_NAMES[i-1]=decodeURIComponent(v); }
-    state.players = Array.from({length:NUM_PLAYERS},(_,i)=>({name:INIT_NAMES[i], pos:0, animX:startLineX()}));
+    state.players = Array.from({length:NUM_PLAYERS},(_,i)=>({name:INIT_NAMES[i], pos:0, animX:startLineX(), y:null, baseY:null}));
     buildNameEditor(); buildRoundInputs();
     elTotalRounds.value = state.totalRounds;
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
-    resize(); lastFrame=performance.now(); requestAnimationFrame(loop);
+    resize();
+    lastFrame=performance.now();
+    requestAnimationFrame(loop);
   }
   window.addEventListener('resize', resize);
 
   // timer clock display is updated in start/stop handlers
   function tickClock(){ /* stub for compatibility */ }
 
-  const surged = new Set();
+  // Start
   init();
+
 })();
 </script>
 </body>
