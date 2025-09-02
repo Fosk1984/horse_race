@@ -375,17 +375,21 @@
         ctx.save(); ctx.strokeStyle='#6ac2ff'; ctx.globalAlpha=.9; ctx.beginPath(); ctx.arc(x,cy,22,0,Math.PI*2); ctx.stroke(); ctx.restore();
       }
 
-      // bob/tilt + emoji horse on top
-      const bob = Math.sin((t*6)+(i*.7))*2.4;
-      const tilt= Math.sin((t*1.8)+(i*.9))*0.05;
+    // bob/tilt + emoji horse on top (mirrored to face right)
+const bob = Math.sin((t*6)+(i*.7))*2.4;
+const tilt= Math.sin((t*1.8)+(i*.9))*0.05;
 
-      ctx.save();
-      ctx.translate(x, cy + bob);
-      ctx.rotate(tilt);
-      ctx.font = `${EMOJI_SIZE}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(HORSE_EMOJI, 0, 0);
-      ctx.restore();
+ctx.save();
+ctx.translate(x, cy + bob);
+// Flip horizontally so the emoji faces right (movement direction)
+ctx.scale(-1, 1);
+ctx.rotate(tilt);
+// After scale(-1,1), draw at negative x to stay centered at origin
+ctx.font = `${EMOJI_SIZE}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+ctx.textAlign='center';
+ctx.textBaseline='middle';
+ctx.fillText(HORSE_EMOJI, 0, 0);
+ctx.restore();
     });
   }
 
