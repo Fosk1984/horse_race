@@ -153,10 +153,10 @@
   const FIELD_BOTTOM_MARGIN = 40;
 
   // Finish line near the right edge
-  const leftPad = 110, rightPad = 90;
+  const leftPad = 110, rightPad = 8;
 
   // How close the finish banner sits below the fence (in px)
-  const FINISH_GAP_FROM_FENCE = 0;
+  const FINISH_GAP_FROM_FENCE = 8;
 
   // Emoji horse visual
   const HORSE_EMOJI = '🐎';
@@ -229,7 +229,7 @@
       nameInput.type='text'; nameInput.value=p.name;
       nameInput.addEventListener('input', e=> p.name = e.target.value || `Player ${i+1}`);
       const posPill = document.createElement('div'); posPill.className='tiny'; posPill.id=`posPill${i}`; posPill.textContent='Moves: 0';
-      const seat = document.createElement('div'); seat.className='tiny'; textContent = `Seat #${i+1}`; seat.textContent = textContent;
+      const seat = document.createElement('div'); seat.className='tiny'; seat.textContent = `Seat #${i+1}`;
       elNameGrid.append(nameInput,posPill,seat);
     });
   }
@@ -491,7 +491,7 @@
       ctx.fillRect(sx, top, stripeW/2, height);
     }
 
-    // finish marker — anchored just below the fence
+    // finish marker — anchored just below the fence (no "FINISH" word)
     const fx = finishLineX();
     const finishTopY = fy + FINISH_GAP_FROM_FENCE;
 
@@ -506,6 +506,7 @@
       ctx.fillStyle = i % 2 ? '#fff' : '#111';
       ctx.fillRect(fx - 28 + i * 5, finishTopY - 16, 5, 20);
     }
+  }
 
   function drawHorses(){
     const { top } = fieldGeometry();
@@ -518,7 +519,7 @@
       const cy = p.y ?? (top + 60 + i*40);
       const x  = p.animX ?? startLineX();
 
-      // trailing name plate (behind horse)
+      // trailing name plate (behind horse) — moved further back (gap=35)
       const label = p.name;
       ctx.font='13px system-ui, sans-serif';
       const textW = Math.ceil(ctx.measureText(label).width);
@@ -691,8 +692,10 @@
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
     resize(); lastFrame=performance.now(); requestAnimationFrame(loop);
   }
+
   init();
 })(); /* single, final IIFE close */
 </script>
+
 </body>
 </html>
