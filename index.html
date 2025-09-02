@@ -302,7 +302,7 @@
   function updateUndo(){ elUndo.disabled = state.history.length===0; }
 
   // ---------- Canvas loop & drawing ----------
-  const surged = new Set();
+
   function approach(cur,tgt,dt,speed){ const d=tgt-cur; const step=Math.sign(d)*Math.min(Math.abs(d), speed*dt); return cur+step; }
 
   function resize(){
