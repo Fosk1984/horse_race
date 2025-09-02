@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Horse Race Quiz — Flash-style Animated Track (Top Half)</title>
+<title>Horse Race Quiz — Flash-style Track + SVG Horses</title>
 <style>
   :root{
     --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
@@ -119,7 +119,7 @@
     roundNow: 1,
     players: [],          // {name, pos, animX}
     history: [],          // per round deltas
-    finishers: []         // order indices
+    finishers: []
   };
 
   // ------- DOM (bottom) -------
@@ -152,12 +152,53 @@
   let trackOffset = 0;       // horizontal loop offset
 
   const LANES = NUM_PLAYERS;
-  const lanePadTop = 40;
-  const lanePadBottom = 40;
-  const leftPad = 100;       // left padding before start
-  const rightPad = 80;       // right padding after finish
+  const leftPad = 100;
+  const rightPad = 80;
   const finishLineX = ()=> W - rightPad;
   const startLineX  = ()=> leftPad;
+
+  // --- SVG horse frames (3-frame gallop) ---
+  const HORSE_W = 44, HORSE_H = 28; // draw size in px
+  const horseFrames = []; // array of Image objects (frame 0..2)
+
+  function svgDataUrl(frame, color="#e9f0ff"){
+    // Simple stylized horse: body, head/neck, tail, 4 legs with different poses
+    const legPos = [
+      // frame 0
+      [[6,22,  12,26],[18,22,  12,26],[28,22,  34,26],[38,22,  34,26]],
+      // frame 1
+      [[6,22,  10,26],[18,22,  24,26],[28,22,  24,26],[38,22,  42,26]],
+      // frame 2
+      [[6,22,  12,26],[18,22,  14,26],[28,22,  36,26],[38,22,  34,26]],
+    ][frame % 3];
+
+    const svg =
+`<svg xmlns="http://www.w3.org/2000/svg" width="${HORSE_W}" height="${HORSE_H}" viewBox="0 0 44 28">
+  <g fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- body -->
+    <path d="M9 16 C 16 10, 28 10, 35 16 C 30 20, 14 20, 9 16 Z" fill="${color}"/>
+    <!-- neck + head -->
+    <path d="M28 14 L 36 10 L 40 12 L 37 14 L 32 16 Z" fill="${color}"/>
+    <circle cx="40" cy="12" r="1.2" fill="#0b162b"/>
+    <!-- tail -->
+    <path d="M8 16 Q 4 17, 4 20" />
+    <!-- legs -->
+    <path d="M${legPos[0][0]} ${legPos[0][1]} L ${legPos[0][2]} ${legPos[0][3]}" />
+    <path d="M${legPos[1][0]} ${legPos[1][1]} L ${legPos[1][2]} ${legPos[1][3]}" />
+    <path d="M${legPos[2][0]} ${legPos[2][1]} L ${legPos[2][2]} ${legPos[2][3]}" />
+    <path d="M${legPos[3][0]} ${legPos[3][1]} L ${legPos[3][2]} ${legPos[3][3]}" />
+  </g>
+</svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  function preloadHorses(){
+    for(let f=0; f<3; f++){
+      const img = new Image();
+      img.src = svgDataUrl(f);
+      horseFrames.push(img);
+    }
+  }
 
   function resize(){
     const r = canvas.getBoundingClientRect();
@@ -183,6 +224,7 @@
     elTotalRounds.value = state.totalRounds;
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
 
+    preloadHorses();
     resize();
     lastFrame = performance.now();
     requestAnimationFrame(loop);
@@ -382,14 +424,12 @@
   function fmt(s){ const m = Math.floor(s/60).toString().padStart(2,'0'); const r=(s%60).toString().padStart(2,'0'); return `${m}:${r}`; }
 
   // ------- Canvas animation helpers -------
-  // Track “surge” after Apply: list of indices that moved (for a brief speed boost aura)
   const surge = new Set();
   function surgeFor(indices){
     indices.forEach(i=>surge.add(i));
     setTimeout(()=>{ indices.forEach(i=>surge.delete(i)); }, 600);
   }
 
-  // Simple easing (per frame lerp)
   function approach(current, target, dt, speed){
     const diff = target - current;
     const step = Math.sign(diff) * Math.min(Math.abs(diff), speed*dt);
@@ -405,8 +445,7 @@
 
     // Scroll background
     const scrollPx = (baseScroll + scrollBoost) * dt;
-    trackOffset = (trackOffset + scrollPx) % 2000; // arbitrary loop
-    // decay scroll boost
+    trackOffset = (trackOffset + scrollPx) % 2000;
     scrollBoost = Math.max(0, scrollBoost - 400*dt);
 
     // Update horses’ animX toward logical targetX
@@ -416,7 +455,7 @@
     state.players.forEach((p,i)=>{
       const percent = clamp(p.pos / finishIdx, 0, 1);
       const target = startX + percent * (finishX - startX);
-      const extra = surge.has(i) ? 480 : 280; // speed px/sec when moving
+      const extra = surge.has(i) ? 480 : 280; // px/sec
       p.animX = approach(p.animX, target, dt, extra);
     });
 
@@ -428,17 +467,11 @@
   // ------- Drawing -------
   function draw(dt){
     ctx.clearRect(0,0,W,H);
-
-    // Background layers (parallax)
     drawSky();
     drawStands((trackOffset*0.2)%W);
     drawFence((trackOffset*0.5)%W);
-
-    // Track lanes
     drawTrackSurface((trackOffset)%W);
     drawFinish();
-
-    // Horses
     drawHorses();
   }
 
@@ -469,9 +502,7 @@
     const y = 110;
     ctx.strokeStyle = '#203356';
     ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    // posts
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
     ctx.fillStyle = '#1b2a49';
     for(let x=-W; x<W*2; x+=60){
       const px = Math.floor(x - off*1.1);
@@ -481,14 +512,12 @@
 
   function drawTrackSurface(off){
     const top = 140, bottom = H-50;
-    // lane bands
     const laneH = (bottom - top) / LANES;
     for(let l=0;l<LANES;l++){
       const y0 = top + l*laneH;
       ctx.fillStyle = l%2 ? '#16254a' : '#122042';
       ctx.fillRect(0, y0, W, laneH-4);
 
-      // moving dashed lines
       ctx.strokeStyle = '#253a6b';
       ctx.lineWidth = 2;
       ctx.setLineDash([16,12]);
@@ -504,15 +533,12 @@
   function drawFinish(){
     const x = finishLineX();
     const top = 140, bottom = H-50;
-    // finish pole
     ctx.fillStyle = '#2a467f';
     ctx.fillRect(x-2, top-18, 4, (bottom-top)+18);
-    // checker banner
     for(let i=0;i<10;i++){
       ctx.fillStyle = i%2 ? '#e9f0ff' : '#21345d';
       ctx.fillRect(x-26 + i*5, top-26, 5, 20);
     }
-    // label
     ctx.fillStyle = '#9fb2da';
     ctx.font = '12px system-ui, sans-serif';
     ctx.fillText('FINISH', x-24, top-30);
@@ -524,11 +550,13 @@
     const maxPos = Math.max(...state.players.map(p=>p.pos));
     const leaders = new Set(state.players.map((p,i)=> p.pos===maxPos ? i : null).filter(i=>i!==null));
 
+    const frame = Math.floor(t*10) % 3; // gallop speed
+
     state.players.forEach((p,i)=>{
       const cy = top + i*laneH + laneH*0.5;
       const x = p.animX;
 
-      // glow if leader
+      // leader glow
       if (leaders.has(i)){
         ctx.save();
         ctx.shadowColor = 'rgba(255,211,106,.6)';
@@ -538,7 +566,7 @@
         ctx.restore();
       }
 
-      // “speed aura” if surged
+      // surge ring
       if (surge.has(i)){
         ctx.save();
         ctx.strokeStyle = '#6ac2ff';
@@ -549,12 +577,19 @@
         ctx.restore();
       }
 
-      // horse body (emoji + bob)
-      const bob = Math.sin((t*8)+(i*0.7)) * 3;
-      ctx.font = '20px "Apple Color Emoji","Segoe UI Emoji",system-ui,sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🐎', x, cy + bob);
+      // slight bob/tilt
+      const bob = Math.sin((t*6)+(i*0.7)) * 2;
+      const tilt = Math.sin((t*2)+(i*0.9)) * 0.05; // radians
+
+      // draw SVG horse frame
+      const img = horseFrames[frame];
+      if (img && img.complete){
+        ctx.save();
+        ctx.translate(x, cy + bob);
+        ctx.rotate(tilt);
+        ctx.drawImage(img, -HORSE_W/2, -HORSE_H/2, HORSE_W, HORSE_H);
+        ctx.restore();
+      }
 
       // name plate
       ctx.fillStyle = '#0b162b';
@@ -566,6 +601,8 @@
       ctx.strokeRect(x - w/2, cy + 16, w, 16);
       ctx.fillStyle = '#9fb2da';
       ctx.font = '12px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(label, x, cy + 24);
     });
   }
