@@ -488,19 +488,29 @@
       ctx.fillRect(sx, top, stripeW/2, height);
     }
 
-    // finish marker (edge)
+    
+        // finish marker — anchored just below the fence
     const fx = finishLineX();
-    for(let i=0;i<12;i++){
-      ctx.fillStyle = i%2 ? '#fff' : '#cc2a2a';
-      ctx.fillRect(fx-3, top-18 + i*6, 6,6);
+    const finishTopY = fy + FINISH_GAP_FROM_FENCE;
+
+    // vertical red/white chevrons down the field edge
+    for (let i = 0; i < 12; i++) {
+      ctx.fillStyle = i % 2 ? '#fff' : '#cc2a2a';
+      ctx.fillRect(fx - 3, finishTopY + i * 6, 6, 6);
     }
-    for(let i=0;i<10;i++){
-      ctx.fillStyle = i%2 ? '#fff' : '#111';
-      ctx.fillRect(fx-28 + i*5, top-28, 5,20);
+
+    // checker banner just above the chevrons
+    for (let i = 0; i < 10; i++) {
+      ctx.fillStyle = i % 2 ? '#fff' : '#111';
+      ctx.fillRect(fx - 28 + i * 5, finishTopY - 16, 5, 20);
     }
-    ctx.fillStyle = '#f0f6ff'; ctx.font='12px system-ui, sans-serif'; ctx.textAlign='right';
-    ctx.fillText('FINISH', Math.min(W-6, fx-6), top-32); ctx.textAlign='start';
-  }
+
+    // label tucked up near the fence
+    ctx.fillStyle = '#f0f6ff';
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('FINISH', Math.min(W - 6, fx - 6), Math.max(12, fy - 6));
+    ctx.textAlign = 'start';
 
   function drawHorses(){
     const { top } = fieldGeometry();
