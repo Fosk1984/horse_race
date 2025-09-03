@@ -518,7 +518,7 @@ const firebaseConfig = {
     if(!confirm('Reset the race?')) return;
     state.history=[]; state.roundNow=1;
     state.finishOrderIdxs=[]; state.podiumShown=false; state.confettiStarted=false;
-    state.players.forEach(p=>{ p.pos=0; p.animX=startLineX(); p.y=p.baseY; });
+    state.players.forEach(p=>{ p.pos=0; p.animX: startLineX(); p.y=p.baseY; });
     hidePodium(); stopConfetti();
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
     clearRoundSelections(); updateSidebar(); updateUndo();
@@ -781,7 +781,7 @@ const firebaseConfig = {
     // Read ?p1= etc (seat names)
     const url = new URL(location.href);
     for(let i=1;i<=NUM_PLAYERS;i++){ const v=url.searchParams.get('p'+i); if(v) INIT_NAMES[i-1]=decodeURIComponent(v); }
-    state.players = Array.from({length:NUM_PLAYERS},(_,i)=>({name:INIT_NAMES[i], pos:0, animX=startLineX(), y:null, baseY:null}));
+    state.players = Array.from({length:NUM_PLAYERS},(_,i)=>({name:INIT_NAMES[i], pos:0, animX: startLineX(), y:null, baseY:null}));
     buildNameEditor(); buildRoundInputs();
     elTotalRounds && (elTotalRounds.value = state.totalRounds);
     elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
