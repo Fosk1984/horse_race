@@ -601,6 +601,48 @@ const firebaseConfig = {
     if (countdown){ remaining=Math.max(0,remaining-1); elClockTop.textContent = fmt(remaining); if (remaining===0) { if (timerInt){ clearInterval(timerInt); timerInt=null; } } }
     else { const v=clamp(parseInt(elSecsTop.value,10)||20,5,300); elClockTop.textContent = fmt(v); }
   }
+// --- AUTO-SEATING: map joining player names -> horse seats ---
+function isPlaceholderName(s){
+  return /^Player\s+\d+$/i.test(String(s||'').trim());
+}
+
+function updateSeatUI(idx){
+  // Update the name editor input
+  const input = document.querySelectorAll('#nameGrid input')[idx];
+  if (input) input.value = state.players[idx].name;
+  // Update the Round Input label
+  const lab = document.getElementById(`labC${idx}`);
+  if (lab) lab.textContent = state.players[idx].name;
+}
+
+function ensureSeatForName(playerName){
+  const name = String(playerName||'').trim();
+  if (!name) return;
+
+  // Already seated?
+  const already = state.players.findIndex(p => p.name.trim() === name);
+  if (already !== -1) return;
+
+  // Find first placeholder seat
+  let idx = state.players.findIndex(p => isPlaceholderName(p.name));
+  if (idx === -1) {
+    // If no placeholder left, do nothing (or choose the least-used seat).
+    return;
+  }
+
+  // Assign
+  state.players[idx].name = name;
+  updateSeatUI(idx);
+}
+
+function syncSeatsWithPlayersSnapshot(playersObj){
+  // playersObj: { uid: {name, active, ...}, ... }
+  const names = Object.values(playersObj||{})
+    .map(p => String(p?.name||'').trim())
+    .filter(Boolean);
+
+  names.forEach(n => ensureSeatForName(n));
+}
 
   /* =================== AUTO VOTING (MODEL A) — SINGLE PAGE =================== */
   // Firebase init + Anonymous Auth
@@ -643,23 +685,31 @@ const firebaseConfig = {
 
   // Host: create/join room (claim ownership)
   createOrJoinRoom?.addEventListener('click', async ()=>{
-    const room = roomCodeEl.value.trim(); if(!room){ alert('Enter room code'); return; }
-    engine.room = room; autoStatus.textContent = 'Loading questions…';
-    await loadQuestions();
-    autoStatus.textContent = `Room ${room} ready (${engine.questions.length} Qs)`;
+  const room = roomCodeEl.value.trim(); 
+  if(!room){ alert('Enter room code'); return; }
+  engine.room = room; autoStatus.textContent = 'Loading questions…';
+  await loadQuestions();
+  autoStatus.textContent = `Room ${room} ready (${engine.questions.length} Qs)`;
 
-    if (db){
-      // Claim ownership with current auth uid
-      const ownerUid = await getUid();
-      await db.ref(`/rooms/${room}/owners/${ownerUid}`).set(true);
+  if (db){
+    // Claim ownership with current auth uid
+    const ownerUid = await getUid();
+    await db.ref(`/rooms/${room}/owners/${ownerUid}`).set(true);
 
-      await db.ref(`/rooms/${room}/meta`).set({
-        qid: 0, phase: 'idle', totalRounds: engine.questions.length, voteOpenAt: null, endsAt: null
-      });
-      await db.ref(`/rooms/${room}/current`).remove();
-      await db.ref(`/rooms/${room}/applied`).remove();
-    }
-  });
+    await db.ref(`/rooms/${room}/meta`).set({
+      qid: 0, phase: 'idle', totalRounds: engine.questions.length, voteOpenAt: null, endsAt: null
+    });
+    await db.ref(`/rooms/${room}/current`).remove();
+    await db.ref(`/rooms/${room}/applied`).remove();
+
+    // 👇 PUT THE LISTENER RIGHT HERE
+    db.ref(`/rooms/${room}/players`).on('value', snap => {
+      const players = snap.val() || {};
+      syncSeatsWithPlayersSnapshot(players);
+    });
+  }
+});
+
 
   // Phases
   forceLockBtn?.addEventListener('click', ()=>{ if(engine.mode==='auto' && engine.phase==='vote_open') enterVoteLock(); });
