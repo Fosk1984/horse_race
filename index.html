@@ -130,6 +130,43 @@
     </div>
   </div>
 </div>
+<!-- AUTO VOTING CONTROL BAR (host only) -->
+<div class="bottom">
+  <div class="card" id="autoBar">
+    <div class="row" style="flex-wrap:wrap; gap:10px">
+      <label><strong>Mode</strong></label>
+      <select id="modeSelect">
+        <option value="manual" selected>Manual (tick + fastest)</option>
+        <option value="auto">Auto (Voting)</option>
+      </select>
+
+      <label>Room code</label>
+      <input id="roomCode" type="text" placeholder="e.g. 2468" value="2468">
+
+      <button class="btn accent" id="createOrJoinRoom">Create/Join Room</button>
+      <a class="btn" id="openPlayerLink" target="_blank" rel="noopener">Open Player Page</a>
+
+      <span class="tiny">Status: <span id="autoStatus">Idle</span></span>
+    </div>
+
+    <!-- This is the element your error complained about: -->
+    <div id="questionPane" class="row" style="display:none; flex-wrap:wrap; gap:10px">
+      <div><strong id="qIndex">Q 1</strong> — <span id="qStem">—</span></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <span id="opt0" class="pill">A</span>
+        <span id="opt1" class="pill">B</span>
+        <span id="opt2" class="pill">C</span>
+        <span id="opt3" class="pill">D</span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center">
+        <span class="tiny">Time left:</span>
+        <span class="pill" id="voteClock">—</span>
+        <button class="btnTiny" id="forceLock">Force Lock</button>
+        <button class="btnTiny" id="skipQ">Skip</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- SINGLE-PAGE PLAYER VIEW (hidden unless ?role=player) -->
 <div class="bottom" id="playerView" style="display:none">
