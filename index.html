@@ -622,10 +622,18 @@ const firebaseConfig = {
   modeSelect?.addEventListener('change', ()=> setMode(modeSelect.value));
 
   // Load questions.json
-  async function loadQuestions(){
-    const res = await fetch('questions.json', {cache:'no-store'});
+ async function loadQuestions(){
+  try {
+    const res = await fetch('questions.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error('No questions.json found');
     engine.questions = await res.json();
+  } catch (e) {
+    engine.questions = [
+      { stem: "Sample: 2+2=?", choices:["3","4","5","6"], correctIndex:1, timeLimitSec:15 }
+    ];
   }
+}
+
 
   // Host: open player self-link (same page, role=player)
   openPlayerLink?.addEventListener('click', ()=>{
@@ -762,10 +770,13 @@ const firebaseConfig = {
   /* =================== PLAYER VIEW (same page, ?role=player) =================== */
   let role = new URL(location.href).searchParams.get('role') || 'host';
   if (role === 'player'){
-    // Hide host UI, show player view
-    document.querySelector('.raceTop')?.style.setProperty('display','none');
-    document.querySelectorAll('.bottom')?.forEach((b,i)=>{ if (i===0) b.style.display='none'; }); // hide first bottom (host controls)
-    pv.wrapper.style.display = 'block';
+   // Hide host UI (all host .bottoms) and show only player view
+document.querySelector('.raceTop')?.style.setProperty('display','none');
+document.querySelectorAll('.bottom').forEach(b => {
+  if (b.id !== 'playerView') b.style.display = 'none';
+});
+pv.wrapper.style.display = 'block';
+
 
     // Pre-fill room/name from URL
     const qs = new URL(location.href).searchParams;
