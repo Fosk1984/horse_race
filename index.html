@@ -518,7 +518,11 @@ const firebaseConfig = {
     if(!confirm('Reset the race?')) return;
     state.history=[]; state.roundNow=1;
     state.finishOrderIdxs=[]; state.podiumShown=false; state.confettiStarted=false;
-    state.players.forEach(p=>{ p.pos=0; p.animX: startLineX(); p.y=p.baseY; });
+   state.players.forEach(p => {
+  p.pos = 0;
+  p.animX = startLineX();  // use = here
+  p.y = p.baseY;
+});
     hidePodium(); stopConfetti();
     elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
     clearRoundSelections(); updateSidebar(); updateUndo();
