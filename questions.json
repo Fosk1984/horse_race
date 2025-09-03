@@ -1,0 +1,122 @@
+[
+  {
+    "stem": "What is 2 + 2?",
+    "choices": ["3", "4", "5", "22"],
+    "correctIndex": 1,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "The capital of France is?",
+    "choices": ["Rome", "Berlin", "Madrid", "Paris"],
+    "correctIndex": 3,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "Which planet is known as the Red Planet?",
+    "choices": ["Venus", "Mars", "Jupiter", "Saturn"],
+    "correctIndex": 1,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "In football (soccer), how many players are on the field per team?",
+    "choices": ["9", "10", "11", "12"],
+    "correctIndex": 2,
+    "timeLimitSec": 20
+  },
+  {
+    "stem": "Who painted the Mona Lisa?",
+    "choices": ["Michelangelo", "Leonardo da Vinci", "Raphael", "Van Gogh"],
+    "correctIndex": 1,
+    "timeLimitSec": 20
+  },
+  {
+    "stem": "Water boils at what temperature at sea level?",
+    "choices": ["90°C", "100°C", "110°C", "120°C"],
+    "correctIndex": 1,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "Which element has the chemical symbol O?",
+    "choices": ["Gold", "Oxygen", "Osmium", "Opal"],
+    "correctIndex": 1,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "Which country hosted the 2012 Summer Olympics?",
+    "choices": ["China", "Brazil", "UK", "Russia"],
+    "correctIndex": 2,
+    "timeLimitSec": 20
+  },
+  {
+    "stem": "What is the square root of 64?",
+    "choices": ["6", "7", "8", "9"],
+    "correctIndex": 2,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "What gas do humans breathe in to survive?",
+    "choices": ["Carbon Dioxide", "Oxygen", "Nitrogen", "Helium"],
+    "correctIndex": 1,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "What is the largest mammal in the world?",
+    "choices": ["Elephant", "Blue Whale", "Giraffe", "Killer Whale"],
+    "correctIndex": 1,
+    "timeLimitSec": 20
+  },
+  {
+    "stem": "Which continent is Egypt in?",
+    "choices": ["Asia", "Europe", "Africa", "South America"],
+    "correctIndex": 2,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "How many minutes are in a full football (soccer) match?",
+    "choices": ["60", "90", "100", "120"],
+    "correctIndex": 1,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "Which instrument has 6 strings?",
+    "choices": ["Piano", "Violin", "Guitar", "Drums"],
+    "correctIndex": 2,
+    "timeLimitSec": 20
+  },
+  {
+    "stem": "What is the freezing point of water?",
+    "choices": ["0°C", "10°C", "32°C", "100°C"],
+    "correctIndex": 0,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "Which metal is liquid at room temperature?",
+    "choices": ["Iron", "Mercury", "Copper", "Aluminium"],
+    "correctIndex": 1,
+    "timeLimitSec": 20
+  },
+  {
+    "stem": "Who discovered gravity when an apple fell on his head?",
+    "choices": ["Einstein", "Newton", "Galileo", "Darwin"],
+    "correctIndex": 1,
+    "timeLimitSec": 20
+  },
+  {
+    "stem": "Which ocean is the largest?",
+    "choices": ["Atlantic", "Pacific", "Indian", "Arctic"],
+    "correctIndex": 1,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "How many colours are in a rainbow?",
+    "choices": ["5", "6", "7", "8"],
+    "correctIndex": 2,
+    "timeLimitSec": 15
+  },
+  {
+    "stem": "Which organ pumps blood around the body?",
+    "choices": ["Brain", "Lungs", "Liver", "Heart"],
+    "correctIndex": 3,
+    "timeLimitSec": 15
+  }
+]
