@@ -227,19 +227,17 @@
   const HORSE_EMOJI = '🐎', EMOJI_SIZE = 44;
   const X_NEAR = 110, Y_SEP = 28, SPRING = 0.04, ITERATIONS = 2;
 
-  
- // ======= Firebase (project config) =======
-const firebaseConfig = {
-  apiKey: "AIzaSyAJTVGllUlmanFga4-eCuSi5YucB8F42TQ",
-  authDomain: "horserace-50cd0.firebaseapp.com",
-  databaseURL: "https://horserace-50cd0-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "horserace-50cd0",
-  storageBucket: "horserace-50cd0.firebasestorage.app",
-  messagingSenderId: "942770888682",
-  appId: "1:942770888682:web:57b899f682ae6397325c93",
-  measurementId: "G-EZDCQ7G8SV"
-};
-
+  // ======= Firebase (project config) =======
+  const firebaseConfig = {
+    apiKey: "AIzaSyAJTVGllUlmanFga4-eCuSi5YucB8F42TQ",
+    authDomain: "horserace-50cd0.firebaseapp.com",
+    databaseURL: "https://horserace-50cd0-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "horserace-50cd0",
+    storageBucket: "horserace-50cd0.firebasestorage.app",
+    messagingSenderId: "942770888682",
+    appId: "1:942770888682:web:57b899f682ae6397325c93",
+    measurementId: "G-EZDCQ7G8SV"
+  };
 
   /* =================== STATE (RACE) =================== */
   const state = {
@@ -317,15 +315,34 @@ const firebaseConfig = {
   const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   function mk(tag,cls,txt){ const el=document.createElement(tag); if(cls) el.className=cls; if(txt!=null) el.textContent=txt; return el; }
 
-  // Small helper to ensure we have a UID (after anonymous sign-in)
+  // Ensure we have a UID (after anonymous sign-in)
   async function getUid(){
-    // If already signed in, return current UID
     if (firebase.auth().currentUser) return firebase.auth().currentUser.uid;
-    // Else wait for auth state
     await new Promise(resolve=>{
       const unsub = firebase.auth().onAuthStateChanged(u=>{ if(u){ unsub(); resolve(); } });
     });
     return firebase.auth().currentUser.uid;
+  }
+
+  /* =================== AUTO-SEATING HELPERS =================== */
+  function isPlaceholderName(s){
+    return /^Player\s+\d+$/i.test(String(s||'').trim());
+  }
+  function updateSeatUI(idx){
+    const input = document.querySelectorAll('#nameGrid input')[idx];
+    if (input) input.value = state.players[idx].name;
+    const lab = document.getElementById(`labC${idx}`);
+    if (lab) lab.textContent = state.players[idx].name;
+  }
+  function ensureSeatForName(playerName){
+    const name = String(playerName||'').trim();
+    if (!name) return;
+    const already = state.players.findIndex(p => p.name.trim() === name);
+    if (already !== -1){ updateSeatUI(already); return; }
+    const idx = state.players.findIndex(p => isPlaceholderName(p.name));
+    if (idx === -1) return;
+    state.players[idx].name = name;
+    updateSeatUI(idx);
   }
 
   /* =================== RACE UI (HOST) =================== */
@@ -334,7 +351,11 @@ const firebaseConfig = {
     state.players.forEach((p,i)=>{
       const nameInput = document.createElement('input');
       nameInput.type='text'; nameInput.value=p.name;
-      nameInput.addEventListener('input', e=> p.name = e.target.value || `Player ${i+1}`);
+      nameInput.addEventListener('input', e=> {
+        p.name = e.target.value || `Player ${i+1}`;
+        const lab = document.getElementById(`labC${i}`);
+        if (lab) lab.textContent = p.name;
+      });
       const posPill = document.createElement('div'); posPill.className='tiny'; posPill.id=`posPill${i}`; posPill.textContent='Moves: 0';
       const seat = document.createElement('div'); seat.className='tiny'; seat.textContent = `Seat #${i+1}`;
       elNameGrid.append(nameInput,posPill,seat);
@@ -408,12 +429,17 @@ const firebaseConfig = {
     }
   }
   function drawBackground(off){
+    // sky
     const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#0f1836'); g.addColorStop(1,'#0b1329'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // stands
     const y=60; ctx.save(); ctx.globalAlpha=.35; ctx.fillStyle='#0b1e35'; for(let x=-W; x<W*2; x+=160){ ctx.fillRect(Math.floor(x-off*.18), y, 120, 30);} ctx.restore();
+    // fence
     const fy=120; ctx.strokeStyle='#ffffff'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(0,fy); ctx.lineTo(W,fy); ctx.stroke();
     ctx.fillStyle='#e8e8e8'; for(let x=-W; x<W*2; x+=60){ const px=Math.floor(x-off*.45); ctx.fillRect(px,fy-14,4,14); }
+    // field
     const { top, height } = fieldGeometry(); ctx.fillStyle='#2b7436'; ctx.fillRect(0, top, W, height);
     const stripeW = 120; for(let x=-W; x<W*2; x+=stripeW){ const sx=Math.floor(x-(off*0.35)%stripeW); ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fillRect(sx, top, stripeW/2, height); }
+    // finish marker (no "FINISH" word)
     const fx = finishLineX(); const finishTopY = fy + FINISH_GAP_FROM_FENCE;
     for (let i=0;i<12;i++){ ctx.fillStyle = i%2 ? '#fff' : '#cc2a2a'; ctx.fillRect(fx-3, finishTopY + i*6, 6,6); }
     for (let i=0;i<10;i++){ ctx.fillStyle = i%2 ? '#fff' : '#111'; ctx.fillRect(fx-28 + i*5, finishTopY - 16, 5,20); }
@@ -524,7 +550,7 @@ const firebaseConfig = {
     deltas.forEach(({idx,delta})=> state.players[idx].pos += delta);
 
     if (state.roundNow < state.totalRounds) state.roundNow++;
-    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
     updateSidebar(); updateUndo();
 
     scrollBoost = 240;
@@ -534,7 +560,7 @@ const firebaseConfig = {
     if (state.finishOrderIdxs.length >= 1 && !state.confettiStarted) runConfetti();
     maybeShowPodium();
   }
-  function applyRound(){ // manual path uses applyDeltas
+  function applyRound(){
     const {correct, fastest} = getRoundSelections();
     if (fastest!==null && !correct.includes(fastest)){ elWarn.style.display='block'; return; }
     elWarn.style.display='none';
@@ -547,7 +573,7 @@ const firebaseConfig = {
     state.players.forEach(p=> p.pos=0);
     for (const deltas of state.history){ for (const {idx,delta} of deltas) state.players[idx].pos += delta; }
     if (state.roundNow>1) state.roundNow--;
-    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
     updateSidebar(); updateUndo();
     state.finishOrderIdxs = computeFinishOrderFromHistory();
     if (state.finishOrderIdxs.length < 1){ stopConfetti(); state.confettiStarted = false; }
@@ -557,13 +583,9 @@ const firebaseConfig = {
     if(!confirm('Reset the race?')) return;
     state.history=[]; state.roundNow=1;
     state.finishOrderIdxs=[]; state.podiumShown=false; state.confettiStarted=false;
-   state.players.forEach(p => {
-  p.pos = 0;
-  p.animX = startLineX();  // use = here
-  p.y = p.baseY;
-});
+    state.players.forEach(p => { p.pos = 0; p.animX = startLineX(); p.y = p.baseY; });
     hidePodium(); stopConfetti();
-    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
     clearRoundSelections(); updateSidebar(); updateUndo();
   }
   function exportCsv(){
@@ -581,7 +603,7 @@ const firebaseConfig = {
     state.finishOrderIdxs = computeFinishOrderFromHistory();
     if (state.finishOrderIdxs.length>=1 && !state.confettiStarted) runConfetti();
     maybeShowPodium();
-    elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`;
+    elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
   });
   elApplyRound?.addEventListener('click', applyRound);
   elUndo?.addEventListener('click', undoRound);
@@ -601,48 +623,6 @@ const firebaseConfig = {
     if (countdown){ remaining=Math.max(0,remaining-1); elClockTop.textContent = fmt(remaining); if (remaining===0) { if (timerInt){ clearInterval(timerInt); timerInt=null; } } }
     else { const v=clamp(parseInt(elSecsTop.value,10)||20,5,300); elClockTop.textContent = fmt(v); }
   }
-// --- AUTO-SEATING: map joining player names -> horse seats ---
-function isPlaceholderName(s){
-  return /^Player\s+\d+$/i.test(String(s||'').trim());
-}
-
-function updateSeatUI(idx){
-  // Update the name editor input
-  const input = document.querySelectorAll('#nameGrid input')[idx];
-  if (input) input.value = state.players[idx].name;
-  // Update the Round Input label
-  const lab = document.getElementById(`labC${idx}`);
-  if (lab) lab.textContent = state.players[idx].name;
-}
-
-function ensureSeatForName(playerName){
-  const name = String(playerName||'').trim();
-  if (!name) return;
-
-  // Already seated?
-  const already = state.players.findIndex(p => p.name.trim() === name);
-  if (already !== -1) return;
-
-  // Find first placeholder seat
-  let idx = state.players.findIndex(p => isPlaceholderName(p.name));
-  if (idx === -1) {
-    // If no placeholder left, do nothing (or choose the least-used seat).
-    return;
-  }
-
-  // Assign
-  state.players[idx].name = name;
-  updateSeatUI(idx);
-}
-
-function syncSeatsWithPlayersSnapshot(playersObj){
-  // playersObj: { uid: {name, active, ...}, ... }
-  const names = Object.values(playersObj||{})
-    .map(p => String(p?.name||'').trim())
-    .filter(Boolean);
-
-  names.forEach(n => ensureSeatForName(n));
-}
 
   /* =================== AUTO VOTING (MODEL A) — SINGLE PAGE =================== */
   // Firebase init + Anonymous Auth
@@ -658,58 +638,77 @@ function syncSeatsWithPlayersSnapshot(playersObj){
     engine.mode = mode;
     const perRoundBlock = document.querySelector('.perRound');
     if (perRoundBlock) perRoundBlock.style.display = (mode==='auto') ? 'none' : '';
-    questionPane.style.display = (mode==='auto') ? 'flex' : 'none';
-    autoStatus.textContent = (mode==='auto') ? 'Auto mode' : 'Manual mode';
+    if (questionPane) questionPane.style.display = (mode==='auto') ? 'flex' : 'none';
+    if (autoStatus) autoStatus.textContent = (mode==='auto') ? 'Auto mode' : 'Manual mode';
   }
   modeSelect?.addEventListener('change', ()=> setMode(modeSelect.value));
 
-  // Load questions.json
- async function loadQuestions(){
-  try {
-    const res = await fetch('questions.json', { cache: 'no-store' });
-    if (!res.ok) throw new Error('No questions.json found');
-    engine.questions = await res.json();
-  } catch (e) {
-    engine.questions = [
-      { stem: "Sample: 2+2=?", choices:["3","4","5","6"], correctIndex:1, timeLimitSec:15 }
-    ];
+  // Load questions.json (safe)
+  async function loadQuestions(){
+    try{
+      const res = await fetch('questions.json', {cache:'no-store'});
+      if (!res.ok) throw new Error('No questions.json found');
+      engine.questions = await res.json();
+    }catch(e){
+      console.warn('Using fallback questions:', e.message);
+      engine.questions = [
+        { stem: "Sample: 2+2=?", choices:["3","4","5","6"], correctIndex:1, timeLimitSec:15 }
+      ];
+    }
   }
-}
 
-
-  // Host: open player self-link (same page, role=player)
+  // Host: open player self-link
   openPlayerLink?.addEventListener('click', ()=>{
     const room = roomCodeEl.value.trim() || '2468';
     openPlayerLink.href = `${location.pathname}?role=player&room=${encodeURIComponent(room)}`;
   });
 
-  // Host: create/join room (claim ownership)
+  // Host: create/join room (claim ownership) + auto-seating listeners + auto-start Q1
   createOrJoinRoom?.addEventListener('click', async ()=>{
-  const room = roomCodeEl.value.trim(); 
-  if(!room){ alert('Enter room code'); return; }
-  engine.room = room; autoStatus.textContent = 'Loading questions…';
-  await loadQuestions();
-  autoStatus.textContent = `Room ${room} ready (${engine.questions.length} Qs)`;
+    const room = roomCodeEl.value.trim(); if(!room){ alert('Enter room code'); return; }
+    engine.room = room; autoStatus && (autoStatus.textContent = 'Loading questions…');
+    await loadQuestions();
+    autoStatus && (autoStatus.textContent = `Room ${room} ready (${engine.questions.length} Qs)`);
 
-  if (db){
-    // Claim ownership with current auth uid
-    const ownerUid = await getUid();
-    await db.ref(`/rooms/${room}/owners/${ownerUid}`).set(true);
+    if (db){
+      // Claim ownership with current auth uid
+      const ownerUid = await getUid();
+      await db.ref(`/rooms/${room}/owners/${ownerUid}`).set(true);
 
-    await db.ref(`/rooms/${room}/meta`).set({
-      qid: 0, phase: 'idle', totalRounds: engine.questions.length, voteOpenAt: null, endsAt: null
-    });
-    await db.ref(`/rooms/${room}/current`).remove();
-    await db.ref(`/rooms/${room}/applied`).remove();
+      // Init room state
+      await db.ref(`/rooms/${room}/meta`).set({
+        qid: 0, phase: 'idle', totalRounds: engine.questions.length, voteOpenAt: null, endsAt: null
+      });
+      await db.ref(`/rooms/${room}/current`).remove();
+      await db.ref(`/rooms/${room}/applied`).remove();
 
-    // 👇 PUT THE LISTENER RIGHT HERE
-    db.ref(`/rooms/${room}/players`).on('value', snap => {
-      const players = snap.val() || {};
-      syncSeatsWithPlayersSnapshot(players);
-    });
-  }
-});
+      // === AUTO-SEATING LISTENERS ===
+      const playersRef = db.ref(`/rooms/${room}/players`);
 
+      // Seat anyone already present (e.g., if host refreshes)
+      playersRef.get().then(snap => {
+        const obj = snap.val() || {};
+        Object.values(obj).forEach(p => ensureSeatForName(p?.name));
+      });
+
+      // Live: each new join
+      playersRef.on('child_added', snap => {
+        const p = snap.val() || {};
+        ensureSeatForName(p?.name);
+      });
+
+      // Live: name edits
+      playersRef.on('child_changed', snap => {
+        const p = snap.val() || {};
+        ensureSeatForName(p?.name);
+      });
+    }
+
+    // Switch UI to auto mode if needed and start Question 1
+    setMode('auto');
+    engine.qid = 0;
+    startVote();
+  });
 
   // Phases
   forceLockBtn?.addEventListener('click', ()=>{ if(engine.mode==='auto' && engine.phase==='vote_open') enterVoteLock(); });
@@ -721,10 +720,10 @@ function syncSeatsWithPlayersSnapshot(playersObj){
     engine.voteOpenAt = Date.now();
     engine.endsAt = engine.voteOpenAt + (q.timeLimitSec||20)*1000;
 
-    qIndex.textContent = 'Q ' + (engine.qid+1);
-    qStem.textContent = q.stem || '—';
+    if (qIndex) qIndex.textContent = 'Q ' + (engine.qid+1);
+    if (qStem) qStem.textContent = q.stem || '—';
     (q.choices||[]).forEach((txt,i)=>{ if(optEls[i]) optEls[i].textContent = ['A','B','C','D'][i] + '. ' + (txt||''); });
-    autoStatus.textContent = `Voting… (${q.timeLimitSec||20}s)`;
+    if (autoStatus) autoStatus.textContent = `Voting… (${q.timeLimitSec||20}s)`;
 
     tickVoteClock(); if(engine.timer) clearInterval(engine.timer);
     engine.timer = setInterval(tickVoteClock, 250);
@@ -737,13 +736,13 @@ function syncSeatsWithPlayersSnapshot(playersObj){
   }
   function tickVoteClock(){
     const left = Math.max(0, Math.ceil((engine.endsAt - Date.now())/1000));
-    voteClock.textContent = left+'s';
+    if (voteClock) voteClock.textContent = left+'s';
     if (db && engine.room) db.ref(`/rooms/${engine.room}/current/timeLeft`).set(left);
     if (left<=0){ clearInterval(engine.timer); engine.timer=null; enterVoteLock(); }
   }
 
   async function enterVoteLock(){
-    engine.phase='vote_lock'; autoStatus.textContent='Locking & scoring…';
+    engine.phase='vote_lock'; if (autoStatus) autoStatus.textContent='Locking & scoring…';
     if (db && engine.room){ await db.ref(`/rooms/${engine.room}/meta/phase`).set('vote_lock'); }
 
     // Get votes
@@ -769,7 +768,7 @@ function syncSeatsWithPlayersSnapshot(playersObj){
     const correctIdxs=[];
     correctUIDs.forEach(u=>{ const idx = nameToIdx.get(uidName[u]||''); if (idx!=null){ correctIdxs.push(idx); deltas.push({idx, delta:1}); } });
 
-    // Fastest-correct +1
+    // Fastest-correct +1 (top ~15% of correct)
     if (correctUIDs.length){
       const ranked = correctUIDs.map(u=>({u, ts: votes[u].serverTs})).sort((a,b)=>a.ts-b.ts);
       const K = Math.max(1, Math.min(5, Math.round(0.15 * ranked.length)));
@@ -787,7 +786,7 @@ function syncSeatsWithPlayersSnapshot(playersObj){
     }
 
     // Reveal then apply
-    engine.phase='reveal'; autoStatus.textContent = `Reveal — correct: ${['A','B','C','D'][correctIndex]}`;
+    engine.phase='reveal'; if (autoStatus) autoStatus.textContent = `Reveal — correct: ${['A','B','C','D'][correctIndex]}`;
     if (db && engine.room){ await db.ref(`/rooms/${engine.room}/meta/phase`).set('reveal'); }
 
     setTimeout(async ()=>{
@@ -809,7 +808,7 @@ function syncSeatsWithPlayersSnapshot(playersObj){
   function nextQuestion(){
     engine.qid++;
     if (engine.qid >= engine.questions.length){
-      autoStatus.textContent = 'Done — no more questions.';
+      if (autoStatus) autoStatus.textContent = 'Done — no more questions.';
       if (db && engine.room){ db.ref(`/rooms/${engine.room}/meta/phase`).set('idle'); }
       return;
     }
@@ -820,13 +819,10 @@ function syncSeatsWithPlayersSnapshot(playersObj){
   /* =================== PLAYER VIEW (same page, ?role=player) =================== */
   let role = new URL(location.href).searchParams.get('role') || 'host';
   if (role === 'player'){
-   // Hide host UI (all host .bottoms) and show only player view
-document.querySelector('.raceTop')?.style.setProperty('display','none');
-document.querySelectorAll('.bottom').forEach(b => {
-  if (b.id !== 'playerView') b.style.display = 'none';
-});
-pv.wrapper.style.display = 'block';
-
+    // Hide all host UI, show only player view
+    document.querySelector('.raceTop')?.style.setProperty('display','none');
+    document.querySelectorAll('.bottom').forEach(b => { if (b.id !== 'playerView') b.style.display = 'none'; });
+    if (pv.wrapper) pv.wrapper.style.display = 'block';
 
     // Pre-fill room/name from URL
     const qs = new URL(location.href).searchParams;
@@ -893,7 +889,7 @@ pv.wrapper.style.display = 'block';
   }
   init();
 })();
+  
 </script>
-
 </body>
 </html>
