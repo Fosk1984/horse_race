@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- Firebase CDN (app + database) -->
+<title>Horse Race Quiz — HOST</title>
+
+<!-- Firebase (compat) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-
-<title>Horse Race Quiz — Field + Early Confetti + Podium</title>
 <style>
   :root{
     --bg:#0c1220; --card:#131a2e; --ink:#e9f0ff; --muted:#9aa4bf; --edge:#22315c;
@@ -19,7 +19,6 @@
   html,body{height:100%}
   body{margin:0; background:var(--bg); color:var(--ink); font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
 
-  /* Race area takes 75% of screen */
   .raceTop{height:75vh; min-height:480px; position:relative; border-bottom:1px solid var(--edge)}
   canvas#raceCanvas{position:absolute; inset:0; width:100%; height:100%}
 
@@ -34,7 +33,6 @@
   .clock{font-variant-numeric:tabular-nums; font-weight:800}
   .btnTiny{cursor:pointer; border:1px solid var(--edge); background:#0f1527; color:var(--ink); padding:4px 6px; border-radius:6px; font-weight:600; font-size:11px}
 
-  /* Compact controls */
   .bottom{max-width:1100px; margin:12px auto; padding:0 12px 12px}
   .card{background:var(--card); border:1px solid var(--edge); border-radius:10px; padding:10px}
   .row{display:flex; align-items:center; gap:8px; margin:6px 0}
@@ -42,49 +40,31 @@
   input[type="text"],input[type="number"]{background:#0f1527; color:var(--ink); border:1px solid var(--edge); border-radius:6px; padding:4px 6px; font-size:13px}
   input[type="text"]{width:120px} input[type="number"]{width:70px}
   .btn{cursor:pointer; border:1px solid var(--edge); background:#0f1527; color:var(--ink); padding:6px 8px; border-radius:8px; font-weight:600; font-size:13px}
-  .btn.good{border-color:#245c43; background:#0c1a16}
-  .btn.warn{border-color:#5c2424; background:#1a0c0c}
   .btn.accent{border-color:#274f7c; background:#0d1626}
   .btn.gold{border-color:#7c6a27; background:#1a1506; color:var(--gold)}
   .playersGrid{display:grid; grid-template-columns: 1fr auto auto; gap:6px 10px; align-items:center; margin-top:6px}
   .tiny{font-size:11px; color:var(--muted)}
-  .warning{color:var(--bad); font-weight:600; display:none; font-size:12px}
-  .perRound{margin-top:8px; border-top:1px dashed var(--edge); padding-top:8px}
-  .perRound h3{margin:0 0 6px; font-size:14px}
-  .perRound .grid{display:grid; grid-template-columns: 1fr 70px 70px; gap:6px 10px; align-items:center}
-  .footerBtns{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap}
 
-  /* Podium overlay */
-  .overlay{
-    position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-    background:rgba(9,13,25,.65); backdrop-filter: blur(6px); z-index:20;
-  }
+  .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(9,13,25,.65); backdrop-filter: blur(6px); z-index:20;}
   .overlay.show{display:flex}
-  .podium{
-    position:relative; background:#0f1527; border:1px solid var(--edge);
-    border-radius:14px; padding:16px 18px; width:min(680px, 92vw);
-    box-shadow:0 10px 40px rgba(0,0,0,.35);
-  }
+  .podium{position:relative; background:#0f1527; border:1px solid var(--edge); border-radius:14px; padding:16px 18px; width:min(680px, 92vw); box-shadow:0 10px 40px rgba(0,0,0,.35);}
   .podium h2{margin:0 0 8px; font-size:20px}
   .podium .stage{display:flex; gap:10px; align-items:flex-end; justify-content:center; margin-top:10px}
   .plinth{border:1px solid var(--edge); background:#0c1529; border-radius:10px 10px 6px 6px; width:30%; text-align:center; padding:8px 6px}
   .plinth .place{font-size:22px; font-weight:900}
-  /* Bigger, black names */
   .plinth .name{margin-top:4px; font-size:20px; font-weight:900; color:#000 !important}
   .p1{height:180px; background:linear-gradient(#ffe8a6,#ffd36a); color:#1a1400}
   .p2{height:150px; background:linear-gradient(#e8edf5,#cfd8e6); color:#0e1218}
   .p3{height:130px; background:linear-gradient(#ffd9b3,#ffb873); color:#241200}
-  .podium .actions{display:flex; justify-content:center; gap:10px; margin-top:12px}
-  .podium .actions .btn{font-size:13px}
 
-  /* Confetti canvas */
   #confettiCanvas{position:fixed; inset:0; pointer-events:none; z-index:19; display:none;}
   #confettiCanvas.show{display:block;}
 </style>
 </head>
 <body>
 
-<!-- TOP: animated race -->
+<!-- Race -->
 <div class="raceTop">
   <canvas id="raceCanvas"></canvas>
 
@@ -97,47 +77,20 @@
   <div class="hudRight">
     <label class="tiny">Round timer (s)</label>
     <input id="secsTop" type="number" min="5" max="300" value="20" />
-    <button class="btnTiny" id="startTimerTop">Start (T)</button>
+    <button class="btnTiny" id="startTimerTop">Start</button>
     <button class="btnTiny" id="stopTimerTop">Stop</button>
     <div class="clock" id="clockTop">00:20</div>
   </div>
 </div>
 
-<!-- BOTTOM: controls/scoring -->
-<div class="bottom">
-  <div class="card">
-    <div class="row">
-      <label>Total rounds</label>
-      <input id="totalRounds" type="number" min="1" max="100" value="30">
-      <button class="btn accent" id="applyRounds">Apply</button>
-      <span class="tiny">Keys: <strong>1–7</strong> fastest (+correct), <strong>Shift+1–7</strong> toggle correct, <strong>Space</strong> Apply, <strong>Backspace</strong> Undo, <strong>R</strong> Reset, <strong>T</strong> Timer.</span>
-    </div>
-
-    <div class="row"><label>Player names</label></div>
-    <div class="playersGrid" id="nameGrid"></div>
-
-    <div class="perRound">
-      <h3>Round Input</h3>
-      <div class="tiny">Tick everyone who was <strong>correct</strong>. Select <strong>fastest</strong> among them. Then Apply.</div>
-      <div class="grid" id="roundGrid"></div>
-      <div class="warning" id="warn">Fastest must be one of the correct players (or leave fastest blank).</div>
-      <div class="footerBtns">
-        <button class="btn good" id="applyRound">Apply Round (Space)</button>
-        <button class="btn" id="undoRound" disabled>Undo (Backspace)</button>
-        <button class="btn warn" id="resetRace">Reset Race (R)</button>
-        <button class="btn gold" id="exportCsv">Export CSV</button>
-      </div>
-    </div>
-  </div>
-</div>
-<!-- AUTO VOTING CONTROL BAR (host only) -->
+<!-- Host controls -->
 <div class="bottom">
   <div class="card" id="autoBar">
     <div class="row" style="flex-wrap:wrap; gap:10px">
       <label><strong>Mode</strong></label>
       <select id="modeSelect">
-        <option value="manual" selected>Manual (tick + fastest)</option>
-        <option value="auto">Auto (Voting)</option>
+        <option value="auto" selected>Auto (Voting)</option>
+        <option value="manual">Manual (tick + fastest)</option>
       </select>
 
       <label>Room code</label>
@@ -149,8 +102,7 @@
       <span class="tiny">Status: <span id="autoStatus">Idle</span></span>
     </div>
 
-    <!-- This is the element your error complained about: -->
-    <div id="questionPane" class="row" style="display:none; flex-wrap:wrap; gap:10px">
+    <div id="questionPane" class="row" style="display:flex; flex-wrap:wrap; gap:10px">
       <div><strong id="qIndex">Q 1</strong> — <span id="qStem">—</span></div>
       <div style="display:flex; gap:8px; flex-wrap:wrap">
         <span id="opt0" class="pill">A</span>
@@ -166,35 +118,13 @@
       </div>
     </div>
   </div>
-</div>
 
-<!-- SINGLE-PAGE PLAYER VIEW (hidden unless ?role=player) -->
-<div class="bottom" id="playerView" style="display:none">
   <div class="card">
-    <div class="row" style="flex-wrap:wrap; gap:10px">
-      <label>Room</label><input id="pvRoom" placeholder="2468" />
-      <label>Name</label><input id="pvName" placeholder="Your name" />
-      <button class="btn accent" id="pvJoin">Join</button>
-      <span class="pill" id="pvStatus">Idle</span>
-    </div>
-  </div>
-
-  <div class="card" id="pvQuestion" style="display:none; margin-top:10px">
-    <div class="row" style="flex-wrap:wrap; gap:10px">
-      <strong id="pvQIndex">Q —</strong> <span id="pvStem">—</span>
-      <span class="pill">Time left: <span id="pvClock">—</span></span>
-    </div>
-    <div class="row" style="flex-wrap:wrap; gap:8px; margin-top:8px">
-      <button class="btn" id="pvC0" data-i="0">A</button>
-      <button class="btn" id="pvC1" data-i="1">B</button>
-      <button class="btn" id="pvC2" data-i="2">C</button>
-      <button class="btn" id="pvC3" data-i="3">D</button>
-      <span class="pill" id="pvSubmitted">No answer yet</span>
-    </div>
+    <div class="row"><label>Player names</label></div>
+    <div class="playersGrid" id="nameGrid"></div>
   </div>
 </div>
 
-  
 <!-- Podium + confetti -->
 <canvas id="confettiCanvas"></canvas>
 <div id="podiumOverlay" class="overlay" aria-hidden="true">
@@ -205,7 +135,7 @@
       <div class="plinth p1"><div class="place">🥇 1st</div><div class="name" id="podium1">—</div></div>
       <div class="plinth p3"><div class="place">🥉 3rd</div><div class="name" id="podium3">—</div></div>
     </div>
-    <div class="actions">
+    <div class="actions" style="display:flex; justify-content:center; gap:10px; margin-top:12px">
       <button class="btn" id="closePodium">Close</button>
       <button class="btn gold" id="copyWinners">Copy winners</button>
     </div>
@@ -214,20 +144,15 @@
 
 <script>
 (function(){
-  /* =================== CONFIG & CONSTANTS =================== */
+  // ---------- Config ----------
   const NUM_PLAYERS = 7;
   const INIT_NAMES  = ["Player 1","Player 2","Player 3","Player 4","Player 5","Player 6","Player 7"];
-
-  // Field geometry
   const FIELD_TOP = 150, FIELD_BOTTOM_MARGIN = 40;
-  const leftPad = 110, rightPad = 8;
-  const FINISH_GAP_FROM_FENCE = 8;
-
-  // Visuals
+  const leftPad = 110, rightPad = 8, FINISH_GAP_FROM_FENCE = 8;
   const HORSE_EMOJI = '🐎', EMOJI_SIZE = 44;
   const X_NEAR = 110, Y_SEP = 28, SPRING = 0.04, ITERATIONS = 2;
 
-  // ======= Firebase (project config) =======
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyAJTVGllUlmanFga4-eCuSi5YucB8F42TQ",
     authDomain: "horserace-50cd0.firebaseapp.com",
@@ -239,37 +164,12 @@
     measurementId: "G-EZDCQ7G8SV"
   };
 
-  /* =================== STATE (RACE) =================== */
-  const state = {
-    totalRounds: 30,
-    roundNow: 1,
-    players: [],            // {name, pos, animX, y, baseY}
-    history: [],            // [{idx, delta},...]
-    finishOrderIdxs: [],
-    podiumShown: false,
-    confettiStarted: false
-  };
+  // ---------- State ----------
+  const state = { totalRounds: 30, roundNow: 1, players: [], history: [], finishOrderIdxs: [], podiumShown:false, confettiStarted:false };
 
-  /* =================== DOM HOOKS (HOST) =================== */
-  const elTotalRounds = document.getElementById('totalRounds');
-  const elApplyRounds = document.getElementById('applyRounds');
+  // ---------- DOM ----------
   const elNameGrid = document.getElementById('nameGrid');
-  const elRoundGrid = document.getElementById('roundGrid');
-  const elWarn = document.getElementById('warn');
-  const elApplyRound = document.getElementById('applyRound');
-  const elUndo = document.getElementById('undoRound');
-  const elReset = document.getElementById('resetRace');
-  const elExport = document.getElementById('exportCsv');
   const elRoundHud = document.getElementById('roundHud');
-
-  // Timer (host HUD)
-  const elSecsTop = document.getElementById('secsTop');
-  const elStartTop = document.getElementById('startTimerTop');
-  const elStopTop  = document.getElementById('stopTimerTop');
-  const elClockTop = document.getElementById('clockTop');
-  let timerInt=null, remaining=0;
-
-  // Auto Voting host controls
   const modeSelect = document.getElementById('modeSelect');
   const roomCodeEl = document.getElementById('roomCode');
   const createOrJoinRoom = document.getElementById('createOrJoinRoom');
@@ -283,56 +183,29 @@
   const forceLockBtn = document.getElementById('forceLock');
   const skipQBtn = document.getElementById('skipQ');
 
-  // Player View (same page)
-  const pv = {
-    wrapper: document.getElementById('playerView'),
-    room: document.getElementById('pvRoom'),
-    name: document.getElementById('pvName'),
-    join: document.getElementById('pvJoin'),
-    status: document.getElementById('pvStatus'),
-    card: document.getElementById('pvQuestion'),
-    qIndex: document.getElementById('pvQIndex'),
-    stem: document.getElementById('pvStem'),
-    clock: document.getElementById('pvClock'),
-    submitted: document.getElementById('pvSubmitted'),
-    choices: [0,1,2,3].map(i=>document.getElementById('pvC'+i))
-  };
-
-  // Canvas + effects
+  // Canvas
   const canvas = document.getElementById('raceCanvas'), ctx = canvas.getContext('2d');
   let W=0,H=0,t=0,lastFrame=0;
   let baseScroll=140, scrollBoost=0, trackOffset=0;
   const finishLineX = ()=> W - rightPad, startLineX = ()=> leftPad;
 
+  // Podium + confetti
   const overlay = document.getElementById('podiumOverlay');
   const podium1 = document.getElementById('podium1'), podium2 = document.getElementById('podium2'), podium3 = document.getElementById('podium3');
   const confetti = document.getElementById('confettiCanvas'), cctx = confetti.getContext('2d');
   let confettiRunning=false, confettiStart=0, confettiParts=[];
   const surged = new Set();
 
-  /* =================== UTILS =================== */
+  // ---------- Utils ----------
   const clamp = (n,min,max)=> Math.min(max,Math.max(min,n));
-  const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   function mk(tag,cls,txt){ const el=document.createElement(tag); if(cls) el.className=cls; if(txt!=null) el.textContent=txt; return el; }
+  const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  const normRoom = s => String(s||'').trim().toUpperCase();
 
-  // Ensure we have a UID (after anonymous sign-in)
-  async function getUid(){
-    if (firebase.auth().currentUser) return firebase.auth().currentUser.uid;
-    await new Promise(resolve=>{
-      const unsub = firebase.auth().onAuthStateChanged(u=>{ if(u){ unsub(); resolve(); } });
-    });
-    return firebase.auth().currentUser.uid;
-  }
-
-  /* =================== AUTO-SEATING HELPERS =================== */
-  function isPlaceholderName(s){
-    return /^Player\s+\d+$/i.test(String(s||'').trim());
-  }
+  function isPlaceholderName(s){ return /^Player\s+\d+$/i.test(String(s||'').trim()); }
   function updateSeatUI(idx){
     const input = document.querySelectorAll('#nameGrid input')[idx];
     if (input) input.value = state.players[idx].name;
-    const lab = document.getElementById(`labC${idx}`);
-    if (lab) lab.textContent = state.players[idx].name;
   }
   function ensureSeatForName(playerName){
     const name = String(playerName||'').trim();
@@ -341,64 +214,25 @@
     if (already !== -1){ updateSeatUI(already); return; }
     const idx = state.players.findIndex(p => isPlaceholderName(p.name));
     if (idx === -1) return;
-    state.players[idx].name = name;
-    updateSeatUI(idx);
+    state.players[idx].name = name; updateSeatUI(idx);
   }
 
-  /* =================== RACE UI (HOST) =================== */
+  // ---------- Build host name list ----------
   function buildNameEditor(){
     elNameGrid.innerHTML='';
     state.players.forEach((p,i)=>{
       const nameInput = document.createElement('input');
       nameInput.type='text'; nameInput.value=p.name;
-      nameInput.addEventListener('input', e=> {
-        p.name = e.target.value || `Player ${i+1}`;
-        const lab = document.getElementById(`labC${i}`);
-        if (lab) lab.textContent = p.name;
-      });
+      nameInput.addEventListener('input', e=> p.name = e.target.value || `Player ${i+1}`);
       const posPill = document.createElement('div'); posPill.className='tiny'; posPill.id=`posPill${i}`; posPill.textContent='Moves: 0';
       const seat = document.createElement('div'); seat.className='tiny'; seat.textContent = `Seat #${i+1}`;
       elNameGrid.append(nameInput,posPill,seat);
     });
   }
-  function buildRoundInputs(){
-    elRoundGrid.innerHTML='';
-    const h1=mk('div','tiny','Player'), h2=mk('div','tiny','Correct'), h3=mk('div','tiny','Fastest');
-    elRoundGrid.append(h1,h2,h3);
-    state.players.forEach((p,i)=>{
-      const nameCell=mk('div',null), correctCell=mk('div',null), fastestCell=mk('div',null);
-      const c=mk('input'); c.type='checkbox'; c.id=`c${i}`;
-      const f=mk('input'); f.type='radio'; f.name='fastest'; f.id=`f${i}`;
-      const lab=mk('label',null,p.name); lab.htmlFor=`c${i}`; lab.id=`labC${i}`;
-      nameCell.appendChild(lab); correctCell.appendChild(c); fastestCell.appendChild(f);
-      elRoundGrid.append(nameCell,correctCell,fastestCell);
-    });
-    elRoundGrid.addEventListener('click', (e)=>{
-      if(e.target && e.target.type==='radio'){
-        e.target.dataset.toggled = e.target.dataset.toggled==='1' ? '0' : '1';
-        if (e.target.dataset.toggled==='0') e.target.checked=false;
-        [...document.querySelectorAll('input[name="fastest"]')].forEach(r=>{ if(r!==e.target) r.dataset.toggled='0'; });
-      }
-    });
-  }
   function updateSidebar(){ state.players.forEach((p,i)=>{ const el=document.getElementById(`posPill${i}`); if(el) el.textContent=`Moves: ${p.pos}`; }); }
-  function updateUndo(){ elUndo.disabled = state.history.length===0; }
 
-  /* =================== RACE ENGINE =================== */
+  // ---------- Race engine ----------
   function approach(cur,tgt,dt,speed){ const d=tgt-cur; return cur+Math.sign(d)*Math.min(Math.abs(d),speed*dt); }
-
-  function resize(){
-    const r = canvas.getBoundingClientRect();
-    canvas.width  = Math.floor(r.width  * devicePixelRatio);
-    canvas.height = Math.floor(r.height * devicePixelRatio);
-    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
-    W=r.width; H=r.height;
-    confetti.width  = Math.floor(r.width);
-    confetti.height = Math.floor(r.height);
-    layoutFieldY();
-  }
-  window.addEventListener('resize', resize);
-
   function fieldGeometry(){ const top=FIELD_TOP, bot=H-FIELD_BOTTOM_MARGIN, height=Math.max(60,bot-top); return {top,bot,height}; }
   function layoutFieldY(){
     const { top, height } = fieldGeometry();
@@ -429,17 +263,12 @@
     }
   }
   function drawBackground(off){
-    // sky
     const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#0f1836'); g.addColorStop(1,'#0b1329'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-    // stands
     const y=60; ctx.save(); ctx.globalAlpha=.35; ctx.fillStyle='#0b1e35'; for(let x=-W; x<W*2; x+=160){ ctx.fillRect(Math.floor(x-off*.18), y, 120, 30);} ctx.restore();
-    // fence
     const fy=120; ctx.strokeStyle='#ffffff'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(0,fy); ctx.lineTo(W,fy); ctx.stroke();
     ctx.fillStyle='#e8e8e8'; for(let x=-W; x<W*2; x+=60){ const px=Math.floor(x-off*.45); ctx.fillRect(px,fy-14,4,14); }
-    // field
     const { top, height } = fieldGeometry(); ctx.fillStyle='#2b7436'; ctx.fillRect(0, top, W, height);
     const stripeW = 120; for(let x=-W; x<W*2; x+=stripeW){ const sx=Math.floor(x-(off*0.35)%stripeW); ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fillRect(sx, top, stripeW/2, height); }
-    // finish marker (no "FINISH" word)
     const fx = finishLineX(); const finishTopY = fy + FINISH_GAP_FROM_FENCE;
     for (let i=0;i<12;i++){ ctx.fillStyle = i%2 ? '#fff' : '#cc2a2a'; ctx.fillRect(fx-3, finishTopY + i*6, 6,6); }
     for (let i=0;i<10;i++){ ctx.fillStyle = i%2 ? '#fff' : '#111'; ctx.fillRect(fx-28 + i*5, finishTopY - 16, 5,20); }
@@ -488,7 +317,7 @@
     requestAnimationFrame(loop);
   }
 
-  /* =================== FINISH, PODIUM, CONFETTI =================== */
+  // Podium + confetti + scoring helpers
   function computeFinishOrderFromHistory(){
     const n = state.players.length; const pos = Array(n).fill(0), seen=new Set(), order=[];
     for (const deltas of state.history){
@@ -526,193 +355,79 @@
       cctx.restore();
     });
   }
-  function csvEscape(s){ return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; }
-  function downloadBlob(content, name, type){ const blob=new Blob([content], {type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url); }
-
-  /* =================== ROUND OPS (MANUAL) =================== */
-  function getRoundSelections(){
-    const correct=[]; let fastest=null;
-    for(let i=0;i<NUM_PLAYERS;i++){
-      if (document.getElementById(`c${i}`).checked) correct.push(i);
-      if (document.getElementById(`f${i}`).checked) fastest=i;
-    }
-    return {correct, fastest};
-  }
-  function clearRoundSelections(){
-    for(let i=0;i<NUM_PLAYERS;i++){
-      const c = document.getElementById(`c${i}`), f=document.getElementById(`f${i}`);
-      c.checked=false; f.checked=false; f.dataset.toggled='0';
-    }
-  }
   function applyDeltas(deltas){
     if (!Array.isArray(deltas) || deltas.length===0) return;
     state.history.push(deltas);
     deltas.forEach(({idx,delta})=> state.players[idx].pos += delta);
-
     if (state.roundNow < state.totalRounds) state.roundNow++;
     elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
-    updateSidebar(); updateUndo();
-
-    scrollBoost = 240;
-    surged.clear(); deltas.forEach(d=>surged.add(d.idx)); setTimeout(()=>{ surged.clear(); }, 650);
-
+    updateSidebar();
+    scrollBoost = 240; surged.clear(); deltas.forEach(d=>surged.add(d.idx)); setTimeout(()=>{ surged.clear(); }, 650);
     state.finishOrderIdxs = computeFinishOrderFromHistory();
     if (state.finishOrderIdxs.length >= 1 && !state.confettiStarted) runConfetti();
     maybeShowPodium();
   }
-  function applyRound(){
-    const {correct, fastest} = getRoundSelections();
-    if (fastest!==null && !correct.includes(fastest)){ elWarn.style.display='block'; return; }
-    elWarn.style.display='none';
-    const deltas=[]; correct.forEach(i=>deltas.push({idx:i, delta:+1})); if (fastest!==null) deltas.push({idx:fastest, delta:+1});
-    clearRoundSelections();
-    applyDeltas(deltas);
-  }
-  function undoRound(){
-    const last = state.history.pop(); if(!last) return;
-    state.players.forEach(p=> p.pos=0);
-    for (const deltas of state.history){ for (const {idx,delta} of deltas) state.players[idx].pos += delta; }
-    if (state.roundNow>1) state.roundNow--;
-    elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
-    updateSidebar(); updateUndo();
-    state.finishOrderIdxs = computeFinishOrderFromHistory();
-    if (state.finishOrderIdxs.length < 1){ stopConfetti(); state.confettiStarted = false; }
-    if (state.finishOrderIdxs.length < 3){ hidePodium(); state.podiumShown = false; }
-  }
-  function resetRace(){
-    if(!confirm('Reset the race?')) return;
-    state.history=[]; state.roundNow=1;
-    state.finishOrderIdxs=[]; state.podiumShown=false; state.confettiStarted=false;
-    state.players.forEach(p => { p.pos = 0; p.animX = startLineX(); p.y = p.baseY; });
-    hidePodium(); stopConfetti();
-    elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
-    clearRoundSelections(); updateSidebar(); updateUndo();
-  }
-  function exportCsv(){
-    const headers = ['Round'].concat(state.players.map(p=>csvEscape(p.name))).join(',');
-    const rows=[headers]; const running=state.players.map(()=>0);
-    state.history.forEach((rd,i)=>{ rd.forEach(({idx,delta})=>running[idx]+=delta);
-      rows.push([String(i+1)].concat(running.map(x=>String(x))).join(',')); });
-    rows.push(['Final'].concat(state.players.map(p=>String(p.pos))).join(','));
-    const csv = rows.join('\n'); downloadBlob(csv, 'horse_race_results.csv', 'text/csv');
-  }
 
-  // Manual controls
-  elApplyRounds?.addEventListener('click', ()=>{
-    state.totalRounds = clamp(parseInt(elTotalRounds.value,10)||30,1,100);
-    state.finishOrderIdxs = computeFinishOrderFromHistory();
-    if (state.finishOrderIdxs.length>=1 && !state.confettiStarted) runConfetti();
-    maybeShowPodium();
-    elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
-  });
-  elApplyRound?.addEventListener('click', applyRound);
-  elUndo?.addEventListener('click', undoRound);
-  elReset?.addEventListener('click', resetRace);
-  elExport?.addEventListener('click', exportCsv);
-  document.addEventListener('keydown', (e)=>{
-    if (e.target.tagName==='INPUT' && e.target.type==='text') return;
-    if (e.code==='Space'){ e.preventDefault(); applyRound(); return; }
-    if (e.code==='Backspace'){ e.preventDefault(); undoRound(); return; }
-    if (e.key?.toLowerCase?.()==='r'){ e.preventDefault(); resetRace(); return; }
-  });
-
-  // Top-right timer (host HUD)
-  elStartTop?.addEventListener('click', ()=>{ if (timerInt) return; remaining = clamp(parseInt(elSecsTop.value,10)||20,5,300); elSecsTop.value = remaining; tickClock(true); timerInt = setInterval(()=>tickClock(true),1000); });
-  elStopTop ?.addEventListener('click', ()=>{ if(timerInt){ clearInterval(timerInt); timerInt=null; } });
-  function tickClock(countdown){
-    if (countdown){ remaining=Math.max(0,remaining-1); elClockTop.textContent = fmt(remaining); if (remaining===0) { if (timerInt){ clearInterval(timerInt); timerInt=null; } } }
-    else { const v=clamp(parseInt(elSecsTop.value,10)||20,5,300); elClockTop.textContent = fmt(v); }
-  }
-
-  /* =================== AUTO VOTING (MODEL A) — SINGLE PAGE =================== */
-  // Firebase init + Anonymous Auth
+  // ---------- Firebase / Auto voting ----------
   let db=null;
   try{ firebase.initializeApp(firebaseConfig); db=firebase.database(); }catch(e){ if(firebase?.apps?.length){ db=firebase.database(); } }
-  firebase.auth().signInAnonymously()
-    .then(()=> console.log('Signed in as', firebase.auth().currentUser.uid))
-    .catch(err=> console.error('Auth failed', err));
+  firebase.auth().signInAnonymously();
 
-  const engine = { mode:'manual', room:null, qid:0, questions:[], phase:'idle', voteOpenAt:0, endsAt:0, timer:null };
+  async function getUid(){
+    if (firebase.auth().currentUser) return firebase.auth().currentUser.uid;
+    await new Promise(resolve=>{
+      const unsub = firebase.auth().onAuthStateChanged(u=>{ if(u){ unsub(); resolve(); } });
+    });
+    return firebase.auth().currentUser.uid;
+  }
+
+  const engine = { mode:'auto', room:null, qid:0, questions:[], phase:'idle', voteOpenAt:0, endsAt:0, timer:null };
 
   function setMode(mode){
     engine.mode = mode;
-    const perRoundBlock = document.querySelector('.perRound');
-    if (perRoundBlock) perRoundBlock.style.display = (mode==='auto') ? 'none' : '';
     if (questionPane) questionPane.style.display = (mode==='auto') ? 'flex' : 'none';
     if (autoStatus) autoStatus.textContent = (mode==='auto') ? 'Auto mode' : 'Manual mode';
   }
   modeSelect?.addEventListener('change', ()=> setMode(modeSelect.value));
 
-  // Load questions.json (safe)
   async function loadQuestions(){
     try{
       const res = await fetch('questions.json', {cache:'no-store'});
       if (!res.ok) throw new Error('No questions.json found');
       engine.questions = await res.json();
     }catch(e){
-      console.warn('Using fallback questions:', e.message);
-      engine.questions = [
-        { stem: "Sample: 2+2=?", choices:["3","4","5","6"], correctIndex:1, timeLimitSec:15 }
-      ];
+      engine.questions = [{ stem:"Sample: 2+2=?", choices:["3","4","5","6"], correctIndex:1, timeLimitSec:15 }];
     }
   }
 
-  // Host: open player self-link
   openPlayerLink?.addEventListener('click', ()=>{
-    const room = roomCodeEl.value.trim() || '2468';
-    openPlayerLink.href = `${location.pathname}?role=player&room=${encodeURIComponent(room)}`;
+    const room = normRoom(roomCodeEl.value) || '2468';
+    openPlayerLink.href = `player.html?room=${encodeURIComponent(room)}`;
   });
 
-  // Host: create/join room (claim ownership) + auto-seating listeners + auto-start Q1
   createOrJoinRoom?.addEventListener('click', async ()=>{
-    const room = roomCodeEl.value.trim(); if(!room){ alert('Enter room code'); return; }
+    const room = normRoom(roomCodeEl.value); if(!room){ alert('Enter room code'); return; }
     engine.room = room; autoStatus && (autoStatus.textContent = 'Loading questions…');
     await loadQuestions();
     autoStatus && (autoStatus.textContent = `Room ${room} ready (${engine.questions.length} Qs)`);
 
     if (db){
-      // Claim ownership with current auth uid
       const ownerUid = await getUid();
       await db.ref(`/rooms/${room}/owners/${ownerUid}`).set(true);
-
-      // Init room state
-      await db.ref(`/rooms/${room}/meta`).set({
-        qid: 0, phase: 'idle', totalRounds: engine.questions.length, voteOpenAt: null, endsAt: null
-      });
+      await db.ref(`/rooms/${room}/meta`).set({ qid: 0, phase: 'idle', totalRounds: engine.questions.length, voteOpenAt: null, endsAt: null });
       await db.ref(`/rooms/${room}/current`).remove();
       await db.ref(`/rooms/${room}/applied`).remove();
 
-      // === AUTO-SEATING LISTENERS ===
       const playersRef = db.ref(`/rooms/${room}/players`);
-
-      // Seat anyone already present (e.g., if host refreshes)
-      playersRef.get().then(snap => {
-        const obj = snap.val() || {};
-        Object.values(obj).forEach(p => ensureSeatForName(p?.name));
-      });
-
-      // Live: each new join
-      playersRef.on('child_added', snap => {
-        const p = snap.val() || {};
-        ensureSeatForName(p?.name);
-      });
-
-      // Live: name edits
-      playersRef.on('child_changed', snap => {
-        const p = snap.val() || {};
-        ensureSeatForName(p?.name);
-      });
+      playersRef.get().then(snap => { const obj = snap.val() || {}; Object.values(obj).forEach(p => ensureSeatForName(p?.name)); });
+      playersRef.on('child_added', snap => { const p = snap.val() || {}; ensureSeatForName(p?.name); });
+      playersRef.on('child_changed', snap => { const p = snap.val() || {}; ensureSeatForName(p?.name); });
     }
 
-    // Switch UI to auto mode if needed and start Question 1
     setMode('auto');
     engine.qid = 0;
     startVote();
   });
-
-  // Phases
-  forceLockBtn?.addEventListener('click', ()=>{ if(engine.mode==='auto' && engine.phase==='vote_open') enterVoteLock(); });
-  skipQBtn?.addEventListener('click', ()=>{ if(engine.mode==='auto') nextQuestion(); });
 
   function startVote(){
     const q = engine.questions[engine.qid]; if(!q) return;
@@ -720,10 +435,10 @@
     engine.voteOpenAt = Date.now();
     engine.endsAt = engine.voteOpenAt + (q.timeLimitSec||20)*1000;
 
-    if (qIndex) qIndex.textContent = 'Q ' + (engine.qid+1);
-    if (qStem) qStem.textContent = q.stem || '—';
+    qIndex.textContent = 'Q ' + (engine.qid+1);
+    qStem.textContent = q.stem || '—';
     (q.choices||[]).forEach((txt,i)=>{ if(optEls[i]) optEls[i].textContent = ['A','B','C','D'][i] + '. ' + (txt||''); });
-    if (autoStatus) autoStatus.textContent = `Voting… (${q.timeLimitSec||20}s)`;
+    autoStatus && (autoStatus.textContent = `Voting… (${q.timeLimitSec||20}s)`);
 
     tickVoteClock(); if(engine.timer) clearInterval(engine.timer);
     engine.timer = setInterval(tickVoteClock, 250);
@@ -736,79 +451,60 @@
   }
   function tickVoteClock(){
     const left = Math.max(0, Math.ceil((engine.endsAt - Date.now())/1000));
-    if (voteClock) voteClock.textContent = left+'s';
+    voteClock.textContent = left+'s';
     if (db && engine.room) db.ref(`/rooms/${engine.room}/current/timeLeft`).set(left);
     if (left<=0){ clearInterval(engine.timer); engine.timer=null; enterVoteLock(); }
   }
-
   async function enterVoteLock(){
-    engine.phase='vote_lock'; if (autoStatus) autoStatus.textContent='Locking & scoring…';
+    engine.phase='vote_lock'; autoStatus && (autoStatus.textContent='Locking & scoring…');
     if (db && engine.room){ await db.ref(`/rooms/${engine.room}/meta/phase`).set('vote_lock'); }
 
-    // Get votes
     let votes = {};
-    if (db && engine.room){
-      const snap = await db.ref(`/rooms/${engine.room}/answers/${engine.qid}`).get();
-      votes = snap.val() || {};
-    }
+    if (db && engine.room){ const snap = await db.ref(`/rooms/${engine.room}/answers/${engine.qid}`).get(); votes = snap.val() || {}; }
     const q = engine.questions[engine.qid]; const correctIndex = q.correctIndex;
 
-    // Map uid -> name -> seat index
     let uidName = {}, nameToIdx = new Map(state.players.map((p,i)=>[p.name.trim(), i]));
     if (db && engine.room){
       const ps = (await db.ref(`/rooms/${engine.room}/players`).get()).val() || {};
       for (const [u,info] of Object.entries(ps)){ uidName[u] = String(info?.name||'').trim(); }
     }
 
-    // Correct voters list
     const correctUIDs = Object.keys(votes).filter(u=> votes[u]?.choice===correctIndex && votes[u]?.serverTs < engine.endsAt);
-
-    // Build deltas: +1 for correct
     const deltas=[];
-    const correctIdxs=[];
-    correctUIDs.forEach(u=>{ const idx = nameToIdx.get(uidName[u]||''); if (idx!=null){ correctIdxs.push(idx); deltas.push({idx, delta:1}); } });
 
-    // Fastest-correct +1 (top ~15% of correct)
     if (correctUIDs.length){
+      correctUIDs.forEach(u=>{ const idx = nameToIdx.get(uidName[u]||''); if (idx!=null) deltas.push({idx, delta:1}); });
       const ranked = correctUIDs.map(u=>({u, ts: votes[u].serverTs})).sort((a,b)=>a.ts-b.ts);
       const K = Math.max(1, Math.min(5, Math.round(0.15 * ranked.length)));
       const cutoffTs = ranked[Math.min(K-1, ranked.length-1)].ts;
       const fastestSet = new Set(ranked.filter(r=> r.ts <= cutoffTs).map(r=>r.u));
       ranked.forEach(({u})=>{
         if (fastestSet.has(u)){
-          const idx = nameToIdx.get(uidName[u]||'');
-          if (idx!=null){
-            const d = deltas.find(x=>x.idx===idx);
-            if (d) d.delta = Math.min(2, d.delta+1);
+          const idx = nameToIdx.get(uidName[u]||''); if (idx!=null){
+            const d = deltas.find(x=>x.idx===idx); if (d) d.delta = Math.min(2, d.delta+1);
           }
         }
       });
     }
 
-    // Reveal then apply
-    engine.phase='reveal'; if (autoStatus) autoStatus.textContent = `Reveal — correct: ${['A','B','C','D'][correctIndex]}`;
+    engine.phase='reveal'; autoStatus && (autoStatus.textContent = `Reveal — correct: ${['A','B','C','D'][correctIndex]}`);
     if (db && engine.room){ await db.ref(`/rooms/${engine.room}/meta/phase`).set('reveal'); }
 
     setTimeout(async ()=>{
-      engine.phase='result';
-      if (db && engine.room){ await db.ref(`/rooms/${engine.room}/meta/phase`).set('result'); }
-
-      // Idempotence guard
+      engine.phase='result'; if (db && engine.room){ await db.ref(`/rooms/${engine.room}/meta/phase`).set('result'); }
       let already=false;
       if (db && engine.room){
         const path = `/rooms/${engine.room}/applied/${engine.qid}`;
         const snap = await db.ref(path).get(); already = !!snap.val();
         if (!already){ applyDeltas(deltas); await db.ref(path).set(true); }
-      } else {
-        applyDeltas(deltas);
-      }
+      } else { applyDeltas(deltas); }
       nextQuestion();
-    }, 1200);
+    }, 1000);
   }
   function nextQuestion(){
     engine.qid++;
     if (engine.qid >= engine.questions.length){
-      if (autoStatus) autoStatus.textContent = 'Done — no more questions.';
+      autoStatus && (autoStatus.textContent = 'Done — no more questions.');
       if (db && engine.room){ db.ref(`/rooms/${engine.room}/meta/phase`).set('idle'); }
       return;
     }
@@ -816,80 +512,34 @@
     startVote();
   }
 
-  /* =================== PLAYER VIEW (same page, ?role=player) =================== */
-  let role = new URL(location.href).searchParams.get('role') || 'host';
-  if (role === 'player'){
-    // Hide all host UI, show only player view
-    document.querySelector('.raceTop')?.style.setProperty('display','none');
-    document.querySelectorAll('.bottom').forEach(b => { if (b.id !== 'playerView') b.style.display = 'none'; });
-    if (pv.wrapper) pv.wrapper.style.display = 'block';
-
-    // Pre-fill room/name from URL
-    const qs = new URL(location.href).searchParams;
-    if (qs.get('room')) pv.room.value = qs.get('room');
-    if (qs.get('name')) pv.name.value = qs.get('name');
-
-    let room=null, pname=null;
-
-    pv.join.addEventListener('click', async ()=>{
-      if (!db){ alert('Firebase not configured'); return; }
-      room = pv.room.value.trim(); pname = pv.name.value.trim() || 'Player';
-      if(!room){ alert('Enter room'); return; }
-      pv.status.textContent = 'Joining…';
-      const uid = await getUid();
-      await db.ref(`/rooms/${room}/players/${uid}`).set({ name: pname, active:true, joinedAt: firebase.database.ServerValue.TIMESTAMP });
-      pv.status.textContent = 'Joined as '+pname;
-      listenPlayerRoom();
-    });
-
-    function listenPlayerRoom(){
-      db.ref(`/rooms/${room}/meta`).on('value', snap=>{
-        const v = snap.val() || {};
-        const show = (v.phase==='vote_open' || v.phase==='vote_lock' || v.phase==='reveal');
-        pv.card.style.display = show ? 'block' : 'none';
-      });
-      db.ref(`/rooms/${room}/current`).on('value', snap=>{
-        const v = snap.val() || {};
-        if (v.qid==null){ pv.card.style.display='none'; return; }
-        pv.qIndex.textContent = 'Q ' + (v.qid+1);
-        pv.stem.textContent = v.stem || '—';
-        pv.clock.textContent = v.timeLeft ?? '—';
-        const ch = v.choices || [];
-        pv.choices.forEach((btn,i)=> btn.textContent = ['A','B','C','D'][i] + (ch[i] ? ('. '+ch[i]) : ''));
-      });
-    }
-    pv.choices.forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        if(!db){ return; }
-        const meta = (await db.ref(`/rooms/${pv.room.value.trim()}/meta`).get()).val() || {};
-        if (meta.phase !== 'vote_open'){ pv.submitted.textContent = 'Voting closed'; return; }
-        const choice = Number(btn.dataset.i);
-        const uid = await getUid();
-        await db.ref(`/rooms/${pv.room.value.trim()}/answers/${meta.qid}/${uid}`).set({
-          choice, serverTs: firebase.database.ServerValue.TIMESTAMP
-        });
-        pv.submitted.textContent = 'Submitted ' + ['A','B','C','D'][choice];
-      });
-    });
-  } else {
-    // HOST view — default
-    setMode(modeSelect?.value || 'manual');
+  // ---------- Boot ----------
+  function resize(){
+    const r = canvas.getBoundingClientRect();
+    canvas.width  = Math.floor(r.width  * devicePixelRatio);
+    canvas.height = Math.floor(r.height * devicePixelRatio);
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    W=r.width; H=r.height;
+    confetti.width  = Math.floor(r.width);
+    confetti.height = Math.floor(r.height);
+    layoutFieldY();
   }
+  window.addEventListener('resize', resize);
 
-  /* =================== BOOT =================== */
+  function drawConfetti(){ /* defined earlier */ } // (kept above)
+
   function init(){
-    // Read ?p1= etc (seat names)
-    const url = new URL(location.href);
-    for(let i=1;i<=NUM_PLAYERS;i++){ const v=url.searchParams.get('p'+i); if(v) INIT_NAMES[i-1]=decodeURIComponent(v); }
-    state.players = Array.from({length:NUM_PLAYERS},(_,i)=>({name:INIT_NAMES[i], pos:0, animX: startLineX(), y:null, baseY:null}));
-    buildNameEditor(); buildRoundInputs();
-    elTotalRounds && (elTotalRounds.value = state.totalRounds);
+    state.players = Array.from({length:NUM_PLAYERS},(_,i)=>({name:INIT_NAMES[i], pos:0, animX:startLineX(), y:null, baseY:null}));
+    buildNameEditor();
     elRoundHud && (elRoundHud.textContent = `Round ${state.roundNow}/${state.totalRounds}`);
     resize(); lastFrame=performance.now(); requestAnimationFrame(loop);
   }
   init();
+
+  document.getElementById('closePodium').onclick = ()=>hidePodium();
+  document.getElementById('copyWinners').onclick = ()=>{
+    navigator.clipboard?.writeText(`1st: ${podium1.textContent}, 2nd: ${podium2.textContent}, 3rd: ${podium3.textContent}`);
+  };
 })();
-  
 </script>
 </body>
 </html>
